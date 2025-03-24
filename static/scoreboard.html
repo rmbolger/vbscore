@@ -48,7 +48,7 @@
             background: rgba(0, 0, 0, 0.5);
             padding: 10px 20px;
             border-radius: 10px;
-            font-size: 5vw;
+            font-size: 3vw;
             cursor: pointer;
         }
 
@@ -75,15 +75,20 @@
             <div class="score" id="scoreB">0</div>
             <div class="team-name" id="teamBName">Team B</div>
         </div>
-        <div class="reset" id="reset">Reset</div>
+        <div class="reset" id="reset" style="display: none;">Reset</div>
     </div>
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const matchId = window.location.pathname.split("/").pop();
         const token = urlParams.get("token");
-        const wsUrl = `ws://${window.location.host}/ws/${matchId}${token ? `?token=${token}` : ''}`;
+        const isAdmin = token; // Simple check for admin (token existence)
 
+        if (isAdmin) {
+            document.getElementById("reset").style.display = "block"; // Show reset button if admin
+        }
+
+        const wsUrl = `ws://${window.location.host}/ws/${matchId}${token ? `?token=${token}` : ''}`;
         const ws = new WebSocket(wsUrl);
 
         ws.onmessage = (event) => {
