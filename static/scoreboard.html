@@ -4,23 +4,133 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Volleyball Scoreboard</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            color: white;
+            font-family: Arial, sans-serif;
+            user-select: none;
+            overflow: hidden; /* Prevent scrolling */
+        }
+        .scoreboard {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        .team {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            transition: all 0.3s ease;
+            touch-action: manipulation;
+        }
+        .score {
+            font-size: 20vw;
+            font-weight: bold;
+        }
+        .team-name {
+            font-size: 4vw;
+        }
+        .reset {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 4vw;
+            cursor: pointer;
+        }
+
+        @media (orientation: portrait) {
+            .scoreboard {
+                flex-direction: column;
+            }
+            .score {
+                font-size: 20vh;
+            }
+            .team-name {
+                font-size: 4vh;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1 id="matchTitle">Live Score</h1>
     <div class="scoreboard">
-        <div id="teamA" class="team">0</div>
-        <div id="teamB" class="team">0</div>
+        <div class="team" id="teamA">
+            <div class="score" id="scoreA">0</div>
+            <div class="team-name" id="teamAName">Team A</div>
+        </div>
+        <div class="team" id="teamB">
+            <div class="score" id="scoreB">0</div>
+            <div class="team-name" id="teamBName">Team B</div>
+        </div>
+        <div class="reset" id="reset">Reset</div>
     </div>
-    <div id="controls" style="display: none;">
-        <button onclick="updateScore('teamA', 'increment')">+1 Team A</button>
-        <button onclick="updateScore('teamA', 'decrement')">-1 Team A</button>
-        <br>
-        <button onclick="updateScore('teamB', 'increment')">+1 Team B</button>
-        <button onclick="updateScore('teamB', 'decrement')">-1 Team B</button>
-        <br>
-        <button onclick="resetScore()">Reset Score</button>
-    </div>
-    <script src="/static/script.js"></script>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const matchId = window.location.pathname.split("/").pop();
+        const token = urlParams.get("token");
+        const wsUrl = `ws://${window.location.host}/ws/${matchId}${token ? `?token=${token}` : ''}`;
+
+        const ws = new WebSocket(wsUrl);
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            document.getElementById("scoreA").textContent = data.score.teamA;
+            document.getElementById("scoreB").textContent = data.score.teamB;
+            document.getElementById("teamA").style.backgroundColor = data.teamA_color;
+            document.getElementById("teamB").style.backgroundColor = data.teamB_color;
+            document.getElementById("teamAName").textContent = data.teamA_name;
+            document.getElementById("teamBName").textContent = data.teamB_name;
+        };
+
+        function sendUpdate(action, team) {
+            ws.send(JSON.stringify({ action, team }));
+        }
+
+        document.getElementById("teamA").addEventListener("click", () => sendUpdate("increment", "teamA"));
+        document.getElementById("teamB").addEventListener("click", () => sendUpdate("increment", "teamB"));
+
+        function handleSwipe(event, team, delta) {
+            sendUpdate(delta > 0 ? "increment" : "decrement", team);
+        }
+
+        let touchStartY = 0;
+
+        document.querySelectorAll(".team").forEach(teamElem => {
+            teamElem.addEventListener("touchstart", (e) => {
+                touchStartY = e.touches[0].clientY;
+            });
+
+            teamElem.addEventListener("touchmove", (e) => {
+                e.preventDefault(); // Prevent scrolling during swipes
+            }, { passive: false });
+
+            teamElem.addEventListener("touchend", (e) => {
+                let touchEndY = e.changedTouches[0].clientY;
+                let deltaY = touchStartY - touchEndY;
+                let teamId = teamElem.id === "teamA" ? "teamA" : "teamB";
+
+                if (deltaY > 30) handleSwipe(e, teamId, 1); // Swipe Up -> Increase Score
+                if (deltaY < -30) handleSwipe(e, teamId, -1); // Swipe Down -> Decrease Score
+            });
+        });
+
+        document.getElementById("reset").addEventListener("click", () => {
+            ws.send(JSON.stringify({ action: "reset" }));
+        });
+    </script>
 </body>
 </html>
