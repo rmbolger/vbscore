@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Volleyball Match</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <h1>Create a Volleyball Match</h1>
+    <form id="matchForm">
+        <label>Team A Name: <input type="text" name="teamA_name" value="Team A"></label><br>
+        <label>Team A Color: <input type="color" name="teamA_color" value="#ff0000"></label><br>
+        <label>Team B Name: <input type="text" name="teamB_name" value="Team B"></label><br>
+        <label>Team B Color: <input type="color" name="teamB_color" value="#0000ff"></label><br>
+        <button type="submit">Create Match</button>
+    </form>
+
+    <div id="links"></div>
+
+    <script>
+        document.getElementById("matchForm").onsubmit = async function(event) {
+            event.preventDefault();
+            let formData = new FormData(this);
+            let response = await fetch("/create_match", { method: "POST", body: formData });
+            let data = await response.json();
+            document.getElementById("links").innerHTML = `
+                <p><a href="${data.admin_link}">Admin Link (Update Score)</a></p>
+                <p><a href="${data.viewer_link}">Viewer Link</a></p>
+            `;
+        };
+    </script>
+</body>
+</html>

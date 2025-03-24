@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volleyball Scoreboard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <h1 id="matchTitle">Live Score</h1>
+    <div class="scoreboard">
+        <div id="teamA" class="team">0</div>
+        <div id="teamB" class="team">0</div>
+    </div>
+    <div id="controls" style="display: none;">
+        <button onclick="updateScore('teamA', 'increment')">+1 Team A</button>
+        <button onclick="updateScore('teamA', 'decrement')">-1 Team A</button>
+        <br>
+        <button onclick="updateScore('teamB', 'increment')">+1 Team B</button>
+        <button onclick="updateScore('teamB', 'decrement')">-1 Team B</button>
+        <br>
+        <button onclick="resetScore()">Reset Score</button>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>
