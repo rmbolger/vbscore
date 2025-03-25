@@ -3,16 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Volleyball Match</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <title>Create Match</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+
+        button {
+            font-size: 1.2em;
+            padding: 10px;
+            margin: 5px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Create a Volleyball Match</h1>
+    <h1>Create a Match</h1>
     <form id="matchForm">
-        <label>Team A Name: <input type="text" name="teamA_name" value="Team A"></label><br>
-        <label>Team A Color: <input type="color" name="teamA_color" value="#ff0000"></label><br>
-        <label>Team B Name: <input type="text" name="teamB_name" value="Team B"></label><br>
-        <label>Team B Color: <input type="color" name="teamB_color" value="#0000ff"></label><br>
+        <label>Team A: <input type="text" name="teamA_name" value="Home"></label><input type="color" name="teamA_color" value="#ff0000"><br>
+        <label>Team B: <input type="text" name="teamB_name" value="Visitor"></label><input type="color" name="teamB_color" value="#0000ff"><br>
         <button type="submit">Create Match</button>
     </form>
 
@@ -25,7 +34,7 @@
             let response = await fetch("/create_match", { method: "POST", body: formData });
             let data = await response.json();
             document.getElementById("links").innerHTML = `
-                <p><a href="${data.admin_link}">Admin Link (Update Score)</a></p>
+                <p><a href="${data.admin_link}">Scorekeeper Link</a></p>
                 <p><a href="${data.viewer_link}">Viewer Link</a></p>
             `;
         };
