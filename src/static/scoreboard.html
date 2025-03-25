@@ -90,20 +90,47 @@
 
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const wsUrl = `${protocol}//${window.location.host}/ws/${matchId}${token ? `?token=${token}` : ''}`;
-        const ws = new WebSocket(wsUrl);
 
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            document.getElementById("scoreA").textContent = data.score.teamA;
-            document.getElementById("scoreB").textContent = data.score.teamB;
-            document.getElementById("teamA").style.backgroundColor = data.teamA_color;
-            document.getElementById("teamB").style.backgroundColor = data.teamB_color;
-            document.getElementById("teamAName").textContent = data.teamA_name;
-            document.getElementById("teamBName").textContent = data.teamB_name;
-        };
+        let ws;
+        let reconnectInterval = 2000; // Start with a 2-second delay before reconnecting
+
+        function connectWebSocket() {
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log("WebSocket connected");
+                reconnectInterval = 2000; // Reset reconnect delay after a successful connection
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                document.getElementById("scoreA").textContent = data.score.teamA;
+                document.getElementById("scoreB").textContent = data.score.teamB;
+                document.getElementById("teamA").style.backgroundColor = data.teamA_color;
+                document.getElementById("teamB").style.backgroundColor = data.teamB_color;
+                document.getElementById("teamAName").textContent = data.teamA_name;
+                document.getElementById("teamBName").textContent = data.teamB_name;
+            };
+
+            ws.onclose = () => {
+                console.log("WebSocket disconnected, attempting to reconnect...");
+                setTimeout(connectWebSocket, reconnectInterval);
+                reconnectInterval = Math.min(reconnectInterval * 2, 30000); // Exponential backoff, max 30s
+            };
+
+            ws.onerror = (err) => {
+                console.error("WebSocket error:", err);
+                ws.close(); // Ensure the connection is closed before attempting to reconnect
+            };
+        }
+
+        // Initial connection
+        connectWebSocket();
 
         function sendUpdate(action, team) {
-            ws.send(JSON.stringify({ action, team }));
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action, team }));
+            }
         }
 
         document.getElementById("teamA").addEventListener("click", () => sendUpdate("increment", "teamA"));
@@ -135,7 +162,7 @@
         });
 
         document.getElementById("reset").addEventListener("click", () => {
-            ws.send(JSON.stringify({ action: "reset" }));
+            sendUpdate("reset");
         });
     </script>
 </body>
