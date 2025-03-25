@@ -1,43 +1,135 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Match</title>
-    <style>
-        body {
-            text-align: center;
-            font-family: Arial, sans-serif;
-        }
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Create Match</title>
+        <style>
+            body {
+                text-align: center;
+                font-family: Arial, sans-serif;
+                padding: 20px;
+                max-width: 600px;
+                margin: auto;
+            }
 
-        button {
-            font-size: 1.2em;
-            padding: 10px;
-            margin: 5px;
-        }
-    </style>
-</head>
-<body>
-    <h1>Create a Match</h1>
-    <form id="matchForm">
-        <label>Team A: <input type="text" name="teamA_name" value="Home"></label><input type="color" name="teamA_color" value="#ff0000"><br>
-        <label>Team B: <input type="text" name="teamB_name" value="Visitor"></label><input type="color" name="teamB_color" value="#0000ff"><br>
-        <button type="submit">Create Match</button>
-    </form>
+            h1 {
+                font-size: 2em;
+            }
 
-    <div id="links"></div>
+            p {
+                font-size: 1.2em;
+                line-height: 1.4;
+            }
 
-    <script>
-        document.getElementById("matchForm").onsubmit = async function(event) {
-            event.preventDefault();
-            let formData = new FormData(this);
-            let response = await fetch("/create_match", { method: "POST", body: formData });
-            let data = await response.json();
-            document.getElementById("links").innerHTML = `
-                <p><a href="${data.admin_link}">Scorekeeper Link</a></p>
-                <p><a href="${data.viewer_link}">Viewer Link</a></p>
-            `;
-        };
-    </script>
-</body>
-</html>
+            .form-group {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                margin-bottom: 15px;
+            }
+
+            .team-input {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                width: 100%;
+                justify-content: center;
+            }
+
+            label {
+                font-size: 1.2em;
+                margin-bottom: 5px;
+            }
+
+            input[type="text"] {
+                font-size: 1.2em;
+                padding: 10px;
+                width: 70%;
+                max-width: 250px;
+            }
+
+            input[type="color"] {
+                width: 50px;
+                height: 50px;
+                border: none;
+                background: none;
+                cursor: pointer;
+            }
+
+            button {
+                font-size: 1.5em;
+                padding: 15px 20px;
+                margin-top: 10px;
+                cursor: pointer;
+                border: none;
+                background-color: #28a745;
+                color: white;
+                border-radius: 8px;
+                width: 90%;
+                max-width: 300px;
+            }
+
+            button:hover {
+                background-color: #218838;
+            }
+
+            #links {
+                margin-top: 20px;
+            }
+
+            #links a {
+                display: block;
+                font-size: 1.2em;
+                margin-top: 10px;
+                text-decoration: none;
+                color: #007bff;
+            }
+
+            #links a:hover {
+                text-decoration: underline;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Live Scoreboard</h1>
+
+        <form id="matchForm">
+            <div class="form-group">
+                <label>Team A (Name/Color)</label>
+                <div class="team-input">
+                    <input type="text" name="teamA_name" value="Home">
+                    <input type="color" name="teamA_color" value="#ff0000">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Team B (Name/Color)</label>
+                <div class="team-input">
+                    <input type="text" name="teamB_name" value="Visitor">
+                    <input type="color" name="teamB_color" value="#0000ff">
+                </div>
+            </div>
+
+            <button type="submit">Create Match</button>
+        </form>
+
+        <div id="links"></div>
+
+        <p>Use this tool to create a live scoreboard that you can update and others can view.
+            Enter team names, select colors, click Create Match, then share the links to track the score in real time.</p>
+
+        <script>
+            document.getElementById("matchForm").onsubmit = async function(event) {
+                event.preventDefault();
+                let formData = new FormData(this);
+                let response = await fetch("/create_match", { method: "POST", body: formData });
+                let data = await response.json();
+                document.getElementById("links").innerHTML = `
+                    <p><a href="${data.admin_link}">Scorekeeper Link</a></p>
+                    <p><a href="${data.viewer_link}">Viewer Link</a></p>
+                `;
+            };
+        </script>
+    </body>
+    </html>
