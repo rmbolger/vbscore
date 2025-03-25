@@ -88,7 +88,8 @@
             document.getElementById("reset").style.display = "block"; // Show reset button if admin
         }
 
-        const wsUrl = `ws://${window.location.host}/ws/${matchId}${token ? `?token=${token}` : ''}`;
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${protocol}//${window.location.host}/ws/${matchId}${token ? `?token=${token}` : ''}`;
         const ws = new WebSocket(wsUrl);
 
         ws.onmessage = (event) => {
