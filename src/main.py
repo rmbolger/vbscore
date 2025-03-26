@@ -1,9 +1,8 @@
+import json
+import uuid
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
-import asyncio
-import json
-import uuid
 
 app = FastAPI()
 
