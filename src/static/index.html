@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Scoreboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body {
             text-align: center;
@@ -98,6 +99,16 @@
         #links a:hover {
             text-decoration: underline;
         }
+
+        #qrcode {
+            margin-top: 15px;
+        }
+
+        #qrcode-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 15px;
+        }
     </style>
 </head>
 <body>
@@ -124,6 +135,9 @@
     </form>
 
     <div id="links"></div>
+    <div id="qrcode-container">
+        <div id="qrcode"></div>
+    </div>
 
     <p>Use this tool to create a live scoreboard that you can update and others can view. Enter team names, select colors, click Create Match, then share the links to track the score in real time.</p>
 
@@ -133,10 +147,23 @@
             let formData = new FormData(this);
             let response = await fetch("/create_match", { method: "POST", body: formData });
             let data = await response.json();
+
+            // Convert relative link to absolute URL
+            let viewerLink = new URL(data.viewer_link, window.location.origin).href;
+
+            // Generate links
             document.getElementById("links").innerHTML = `
-                <p><a href="${data.admin_link}">Scorekeeper Link</a></p>
-                <p><a href="${data.viewer_link}">Viewer Link</a></p>
+                <p><a href="${data.admin_link}" target="_blank">Scorekeeper Link</a></p>
+                <p><a href="${data.viewer_link}" target="_blank">Viewer Link</a></p>
             `;
+
+            // Generate QR Code
+            document.getElementById("qrcode").innerHTML = ""; // Clear previous QR code
+            new QRCode(document.getElementById("qrcode"), {
+                text: viewerLink,
+                width: 250,
+                height: 250
+            });
         };
     </script>
 </body>
