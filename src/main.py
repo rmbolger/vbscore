@@ -5,6 +5,7 @@ import uuid
 import time
 import asyncio
 import logging
+import sys
 from contextlib import asynccontextmanager
 from fastapi import (
     FastAPI, WebSocket, WebSocketDisconnect,
@@ -13,12 +14,30 @@ from fastapi import (
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 
-# Configure logging
+# Define log format
+#LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+LOG_FORMAT = "[%(asctime)s] [%(levelname)s] %(message)s"
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+# Create a handler with the custom format
+formatter = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(formatter)
+
+# Configure the root logger
 logging.basicConfig(
     level=logging.INFO,
-    format="%(levelname)s: %(asctime)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
+    format=LOG_FORMAT,
+    datefmt=LOG_DATE_FORMAT,
+    handlers=[handler]
 )
+
+# Apply the same format to all relevant Uvicorn loggers
+for logger_name in ["uvicorn", "uvicorn.access", "websockets.protocol"]:
+    logger = logging.getLogger(logger_name)
+    logger.handlers.clear()
+    logger.propagate = False
+    logger.addHandler(handler)
 
 matches = {}  # Stores match data
 connections = {}  # Stores active WebSocket connections
