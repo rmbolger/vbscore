@@ -92,28 +92,54 @@
         const wsUrl = `${protocol}//${window.location.host}/ws/${matchId}${token ? `?token=${token}` : ''}`;
 
         let ws;
+        let reconnectAttempts = 0;
         let reconnectInterval = 2000; // Start with a 2-second delay before reconnecting
 
         function connectWebSocket() {
             ws = new WebSocket(wsUrl);
 
+            let connectionStable = false; // Track whether the connection stays open
+
             ws.onopen = () => {
-                console.log("WebSocket connected");
-                reconnectInterval = 2000; // Reset reconnect delay after a successful connection
+                console.log("WebSocket connected, waiting to confirm stability...");
+                setTimeout(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        connectionStable = true;
+                        reconnectAttempts = 0; // Only reset if still open after delay
+                        console.log("Connection is stable, reconnectAttempts reset.");
+                    }
+                }, 1000); // Wait 1 second to confirm stability before resetting
             };
 
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
+
+                if (data.error === "Match expired") {
+                    alert("This match has expired. Redirecting to homepage.");
+                    window.location.href = "/";
+                    return;
+                }
+
                 document.getElementById("scoreA").textContent = data.score.teamA;
                 document.getElementById("scoreB").textContent = data.score.teamB;
-                document.getElementById("teamA").style.backgroundColor = data.teamA_color;
-                document.getElementById("teamB").style.backgroundColor = data.teamB_color;
-                document.getElementById("teamAName").textContent = data.teamA_name;
-                document.getElementById("teamBName").textContent = data.teamB_name;
+                document.getElementById("teamA").style.backgroundColor = data.a_color;
+                document.getElementById("teamB").style.backgroundColor = data.b_color;
+                document.getElementById("teamAName").textContent = data.a_name;
+                document.getElementById("teamBName").textContent = data.b_name;
             };
 
             ws.onclose = () => {
-                console.log("WebSocket disconnected, attempting to reconnect...");
+                if (!connectionStable) {
+                    reconnectAttempts += 1;
+                    console.log(`WebSocket disconnected. Attempting to reconnect (#${reconnectAttempts})...`);
+
+                    if (reconnectAttempts >= 5) {
+                        alert("Unable to reconnect. The match may have expired. Redirecting to homepage.");
+                        window.location.href = "/";
+                        return;
+                    }
+                }
+
                 setTimeout(connectWebSocket, reconnectInterval);
                 reconnectInterval = Math.min(reconnectInterval * 2, 30000); // Exponential backoff, max 30s
             };
