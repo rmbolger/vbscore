@@ -35,7 +35,7 @@ async def cleanup_matches():
             del matches[match_id]
             del connections[match_id]
             logging.info("Match %s expired and was removed.", match_id)
-        await asyncio.sleep(5)#600)  # Run cleanup every 10 minutes
+        await asyncio.sleep(600)  # Run cleanup every 10 minutes
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
