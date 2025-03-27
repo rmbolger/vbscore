@@ -93,22 +93,14 @@
 
         let ws;
         let reconnectAttempts = 0;
-        let reconnectInterval = 2000; // Start with a 2-second delay before reconnecting
+        let reconnectInterval = 2000; // Start with 2s, max 30s
 
         function connectWebSocket() {
             ws = new WebSocket(wsUrl);
 
-            let connectionStable = false; // Track whether the connection stays open
-
             ws.onopen = () => {
-                console.log("WebSocket connected, waiting to confirm stability...");
-                setTimeout(() => {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        connectionStable = true;
-                        reconnectAttempts = 0; // Only reset if still open after delay
-                        console.log("Connection is stable, reconnectAttempts reset.");
-                    }
-                }, 1000); // Wait 1 second to confirm stability before resetting
+                console.log("WebSocket connected.");
+                reconnectAttempts = 0; // Reset on successful connection
             };
 
             ws.onmessage = (event) => {
@@ -128,16 +120,22 @@
                 document.getElementById("teamBName").textContent = data.b_name;
             };
 
-            ws.onclose = () => {
-                if (!connectionStable) {
-                    reconnectAttempts += 1;
-                    console.log(`WebSocket disconnected. Attempting to reconnect (#${reconnectAttempts})...`);
+            ws.onclose = (event) => {
+                console.log(`WebSocket closed with code: ${event.code}`);
 
-                    if (reconnectAttempts >= 5) {
-                        alert("Unable to reconnect. The match may have expired. Redirecting to homepage.");
-                        window.location.href = "/";
-                        return;
-                    }
+                if (event.code === 1008) { // Match no longer exists
+                    console.log("Match expired, redirecting...");
+                    window.location.href = "/";
+                    return;
+                }
+
+                reconnectAttempts += 1;
+                console.log(`Attempting to reconnect (#${reconnectAttempts})...`);
+
+                if (reconnectAttempts >= 5) {
+                    alert("Unable to reconnect. The match may have expired. Redirecting to homepage.");
+                    window.location.href = "/";
+                    return;
                 }
 
                 setTimeout(connectWebSocket, reconnectInterval);
@@ -146,7 +144,7 @@
 
             ws.onerror = (err) => {
                 console.error("WebSocket error:", err);
-                ws.close(); // Ensure the connection is closed before attempting to reconnect
+                ws.close(); // Ensure the connection is closed before retrying
             };
         }
 

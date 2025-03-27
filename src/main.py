@@ -6,7 +6,10 @@ import time
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
+from fastapi import (
+    FastAPI, WebSocket, WebSocketDisconnect,
+    WebSocketException, Request, HTTPException, status
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 
@@ -109,13 +112,12 @@ async def serve_scoreboard(match_id: str):
 @app.websocket("/ws/{match_id}")
 async def websocket_endpoint(match_id: str, websocket: WebSocket, token: str = None):
     """Handles WebSocket connections for live score updates."""
-    await websocket.accept()
 
     if match_id not in matches:
-        logging.warning("WebSocket attempt for non-existent match %s", match_id)
-        await websocket.close()
-        return
+        logging.warning("Rejected WebSocket attempt for non-existent match %s", match_id)
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
 
+    await websocket.accept()
     is_admin = token == matches[match_id]["admin_token"]
     connections[match_id].append(websocket)
 
