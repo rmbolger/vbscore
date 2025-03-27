@@ -8,7 +8,7 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import (
     FastAPI, WebSocket, WebSocketDisconnect,
-    WebSocketException, Request, HTTPException, status
+    Request, HTTPException, status
 )
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
@@ -113,11 +113,15 @@ async def serve_scoreboard(match_id: str):
 async def websocket_endpoint(match_id: str, websocket: WebSocket, token: str = None):
     """Handles WebSocket connections for live score updates."""
 
+    # If match does not exist, explicitly close with 1008 before returning
     if match_id not in matches:
-        logging.warning("Rejected WebSocket attempt for non-existent match %s", match_id)
-        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+        logging.warning("WebSocket attempt for non-existent match %s", match_id)
+        await websocket.accept()  # Must accept before closing with a code
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
 
-    await websocket.accept()
+    await websocket.accept()  # Accepting connection only after validation
+
     is_admin = token == matches[match_id]["admin_token"]
     connections[match_id].append(websocket)
 
@@ -132,7 +136,7 @@ async def websocket_endpoint(match_id: str, websocket: WebSocket, token: str = N
             if match_id not in matches:
                 logging.warning("Match %s was deleted while WebSocket was active", match_id)
                 await websocket.send_json({"error": "Match expired"})
-                await websocket.close()
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
                 return
 
             if is_admin:
