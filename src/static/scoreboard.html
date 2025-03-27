@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Volleyball Scoreboard</title>
     <style>
+        /* Main body styling */
         body {
             margin: 0;
             display: flex;
@@ -15,14 +16,18 @@
             color: white;
             font-family: Arial, sans-serif;
             user-select: none;
-            overflow: hidden; /* Prevent scrolling */
+            overflow: hidden;
         }
+
+        /* Scoreboard container */
         .scoreboard {
             display: flex;
             width: 100vw;
             height: 100svh;
             position: relative;
         }
+
+        /* Team sections */
         .team {
             flex: 1;
             display: flex;
@@ -33,26 +38,90 @@
             transition: all 0.3s ease;
             touch-action: manipulation;
         }
+
+        /* Score styling */
         .score {
             font-size: 22vw;
             font-weight: bold;
         }
+
+        /* Team name styling */
         .team-name {
             font-size: 5vw;
         }
-        .reset {
+
+        /* Current set display - larger text with background */
+        #currentSet {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            font-weight: bold;
+            text-align: center;
             background: rgba(0, 0, 0, 0.5);
             padding: 10px 20px;
             border-radius: 10px;
-            font-size: 3vw;
+        }
+
+        /* Reset button */
+        #reset {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 10px;
             cursor: pointer;
         }
 
+        /* Set history position - Bottom Left */
+        #setsHistory {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            flex-direction: row;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        /* Individual set score */
+        .set-score {
+            font-size: 0.9rem;
+            padding: 5px 10px;
+            background-color: #f3f3f3;
+            color: black;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        /* Default to landscape mode (current set at top center) */
+        @media (orientation: landscape) {
+            #currentSet {
+                font-size: 4vw;
+                top: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+            #reset {
+                font-size: 3vw;
+                bottom: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+        }
+
+        /* Portrait mode */
         @media (orientation: portrait) {
+            #currentSet {
+                font-size: 4vh;
+                left: 10px;
+                top: 50%;
+                transform: translateY(-50%);
+            }
+            #reset {
+                font-size: 3vh;
+                right: 10px;
+                top: 50%;
+                transform: translateY(-50%);
+            }
             .scoreboard {
                 flex-direction: column;
             }
@@ -75,7 +144,9 @@
             <div class="score" id="scoreB">0</div>
             <div class="team-name" id="teamBName">Team B</div>
         </div>
-        <div class="reset" id="reset" style="display: none;">Reset</div>
+        <div id="reset" class="reset" style="display: none;">Reset</div>
+        <div id="currentSet" class="set-number">Set 1</div>
+        <div id="setsHistory" class="sets-history"></div>
     </div>
 
     <script>
@@ -85,7 +156,7 @@
         const isAdmin = token; // Simple check for admin (token existence)
 
         if (isAdmin) {
-            document.getElementById("reset").style.display = "block"; // Show reset button if admin
+            document.getElementById("reset").style.display = "block";
         }
 
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -118,6 +189,17 @@
                 document.getElementById("teamB").style.backgroundColor = data.b_color;
                 document.getElementById("teamAName").textContent = data.a_name;
                 document.getElementById("teamBName").textContent = data.b_name;
+                document.getElementById("currentSet").textContent = data.current_set;
+
+                // Display previous set scores
+                const setsContainer = document.getElementById("setsHistory");
+                setsContainer.innerHTML = "";
+                data.sets.forEach((set, index) => {
+                    const setElem = document.createElement("div");
+                    setElem.textContent = `${set.teamA}-${set.teamB}`;
+                    setElem.className = "set-score";
+                    setsContainer.appendChild(setElem);
+                });
             };
 
             ws.onclose = (event) => {
@@ -159,6 +241,13 @@
 
         document.getElementById("teamA").addEventListener("click", () => sendUpdate("increment", "teamA"));
         document.getElementById("teamB").addEventListener("click", () => sendUpdate("increment", "teamB"));
+        document.getElementById("currentSet").addEventListener("click", () => {
+            if (confirm("End current set and start new set?")) {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ action: "new_set" }));
+                }
+            }
+        });
 
         function handleSwipe(event, team, delta) {
             sendUpdate(delta > 0 ? "increment" : "decrement", team);

@@ -102,6 +102,8 @@ async def create_match(request: Request):
     admin_token = str(uuid.uuid4())[:8]
 
     matches[match_id] = {
+        "sets": [],
+        "current_set": 1,
         "score": {"teamA": 0, "teamB": 0},
         "a_name": a_name,
         "b_name": b_name,
@@ -135,12 +137,11 @@ async def websocket_endpoint(match_id: str, websocket: WebSocket, token: str = N
     # If match does not exist, explicitly close with 1008 before returning
     if match_id not in matches:
         logging.warning("WebSocket attempt for non-existent match %s", match_id)
-        await websocket.accept()  # Must accept before closing with a code
+        await websocket.accept()
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    await websocket.accept()  # Accepting connection only after validation
-
+    await websocket.accept()
     is_admin = token == matches[match_id]["admin_token"]
     connections[match_id].append(websocket)
 
@@ -168,6 +169,13 @@ async def websocket_endpoint(match_id: str, websocket: WebSocket, token: str = N
                         matches[match_id]["score"][update["team"]] -= 1
                 elif update["action"] == "reset":
                     matches[match_id]["score"] = {"teamA": 0, "teamB": 0}
+                elif update["action"] == "new_set":
+                    # Store current set scores
+                    matches[match_id]["sets"].append(matches[match_id]["score"].copy())
+                    # Reset score for new set
+                    matches[match_id]["score"] = {"teamA": 0, "teamB": 0}
+                    # Increment set number
+                    matches[match_id]["current_set"] += 1
 
                 matches[match_id]["last_updated"] = time.time()
 
