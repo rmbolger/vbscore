@@ -2,6 +2,7 @@
 
 import base64
 import json
+import html
 import uuid
 import time
 import asyncio
@@ -139,11 +140,11 @@ async def create_match(request: Request):
     match_creation_tracker[client_ip].append(current_time)
 
     form = await request.form()
-    a_name = form.get("a_name", "Team A")
-    b_name = form.get("b_name", "Team B")
+    a_name = html.escape(form.get("a_name", "Team A")[:20])
+    b_name = html.escape(form.get("b_name", "Team B")[:20])
     a_color = form.get("a_color", "red")
     b_color = form.get("b_color", "blue")
-    match_loc = form.get("mLoc", "")
+    match_loc = html.escape(form.get("mLoc", "")[:20])
 
     match_id = str(uuid.uuid4())[:8]
     admin_token = str(uuid.uuid4())[:8]
