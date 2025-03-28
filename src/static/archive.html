@@ -9,59 +9,71 @@
             font-family: Arial, sans-serif;
             background-color: #f8f8f8;
             text-align: center;
-            padding: 20px;
+            padding: 10px;
             margin: 0;
-            overflow-x: hidden;
         }
-        .match-container {
-            width: 100%;
-            max-width: 600px;
-            margin: auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
-            overflow-x: auto;
+        .match-header {
+            font-size: 1.2em;
+            margin-bottom: 10px;
         }
-        .match-table {
+        .team-name {
+            font-size: 1.5em;
+            text-shadow: 1px 1px 2px black;
+        }
+        .scores-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 1.5em;
+            margin-top: 10px;
         }
-        .match-table th, .match-table td {
-            padding: 15px;
-            border-bottom: 1px solid #ddd;
+        .scores-table th, .scores-table td {
+            border: 1px solid #000;
+            padding: 8px;
             text-align: center;
         }
-        .match-table th {
+        .scores-table th {
             background-color: #eaeaea;
             font-weight: bold;
         }
-        .team-name {
-            padding: 15px;
+        .scores-table .wins-row {
+            background-color: #f9e79f;
+        }
+        .scores-table td:first-child {
+            width: 1%;
+            white-space: nowrap;
+        }
+        .scores-table td:nth-child(2), .scores-table td:nth-child(3) {
+            width: 49.5%;
+            word-wrap: break-word;
+        }
+        .winner {
             font-weight: bold;
-            color: white;
-            text-shadow: 1px 1px 2px black;
+        }
+        td.row-label {
+            border-top: none;
+            border-left: none;
+            border-bottom: none;
         }
     </style>
 </head>
 <body>
-    <div class="match-container">
-        <p id="matchDate"></p>
-        <p id="matchLocation"></p>
-        <table class="match-table">
-            <thead>
-                <tr>
-                    <th>Team</th>
-                    <th>Wins</th>
-                    <th colspan="5">Scores</th>
-                </tr>
-            </thead>
-            <tbody id="matchData">
-                <!-- Match data will be populated dynamically -->
-            </tbody>
-        </table>
+    <div class="match-header">
+        <!-- <h2>Match Results</h2>
+        <p id="matchMeta"></p> -->
+        <p><span style="font-weight: bold; font-size: larger;">Match Results</span><br/>
+        <span id="matchMeta"></span></p>
     </div>
+    <table class="scores-table">
+        <thead>
+            <tr>
+                <th style="background-color: inherit;border-left: none;border-top: none;border-bottom: none;"></th>
+                <th id="teamAName" class="team-name"></th>
+                <th id="teamBName" class="team-name"></th>
+            </tr>
+        </thead>
+        <tbody id="matchData">
+            <!-- Match data will be populated dynamically -->
+        </tbody>
+    </table>
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
@@ -70,30 +82,28 @@
         if (encodedState) {
             const jsonString = atob(encodedState.replace(/-/g, '+').replace(/_/g, '/'));
             const matchData = JSON.parse(jsonString);
-            document.getElementById("matchDate").textContent = `${matchData.mDate}`;
+            document.getElementById("matchMeta").textContent = `${matchData.mDate}`;
             if (matchData.mLoc) {
-                document.getElementById("matchLocation").textContent = `@ ${matchData.mLoc}`;
+                document.getElementById("matchMeta").textContent += ` @ ${matchData.mLoc}`;
             }
+            document.getElementById("teamAName").textContent = matchData.tA.name;
+            document.getElementById("teamAName").style = `background-color: ${matchData.tA.color}; color: white`;
+            document.getElementById("teamBName").textContent = matchData.tB.name;
+            document.getElementById("teamBName").style = `background-color: ${matchData.tB.color}; color: white`;
+
             const tableBody = document.getElementById("matchData");
-
-            function createRow(team, opponentWins, scores) {
-                let isWinner = team.wins > opponentWins;
-                let row = `<tr>
-                    <td class='team-name' style='background-color: ${team.color};'>${team.name}</td>
-                    <td style='${isWinner ? "font-weight: bold;" : ""}'>${team.wins}</td>`;
-
-                scores.forEach(score => {
-                    row += `<td style='${score === Math.max(...scores) ? "font-weight: bold;" : ""}'>${score}</td>`;
-                });
-
-                row += `</tr>`;
-                return row;
+            let rows = `<tr class="wins-row"><td class="row-label">Wins</td><td class="winner">${matchData.tA.wins}</td><td>${matchData.tB.wins}</td></tr>`;
+            if (matchData.tA.wins < matchData.tB.wins) {
+                rows = `<tr class="wins-row"><td class="row-label">Wins</td><td>${matchData.tA.wins}</td><td class="winner">${matchData.tB.wins}</td></tr>`;
             }
-
-            let rowA = createRow(matchData.tA, matchData.tB.wins, matchData.tA.scores);
-            let rowB = createRow(matchData.tB, matchData.tA.wins, matchData.tB.scores);
-
-            tableBody.innerHTML = rowA + rowB;
+            matchData.tA.scores.forEach((score, index) => {
+                let row = `<tr><td class="row-label">Set ${index + 1}</td><td class="winner">${score}</td><td>${matchData.tB.scores[index]}</td></tr>`;
+                if (score < matchData.tB.scores[index]) {
+                    row = `<tr><td class="row-label">Set ${index + 1}</td><td>${score}</td><td class="winner">${matchData.tB.scores[index]}</td></tr>`;
+                }
+                rows += row;
+            });
+            tableBody.innerHTML = rows;
         }
     </script>
 </body>
