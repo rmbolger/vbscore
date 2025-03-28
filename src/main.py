@@ -65,7 +65,7 @@ def encode_match_state(match):
     """Encodes a match state into a structured JSON object for archiving."""
     match_state = {
         "mDate": datetime.now().strftime("%Y-%m-%d"),  # Match date in local time
-        "mLoc": "",  # Placeholder for location
+        "mLoc": match["mLoc"],
         "tA": {
             "name": match["a_name"],
             "color": match["a_color"],
@@ -143,6 +143,7 @@ async def create_match(request: Request):
     b_name = form.get("b_name", "Team B")
     a_color = form.get("a_color", "red")
     b_color = form.get("b_color", "blue")
+    match_loc = form.get("mLoc", "")
 
     match_id = str(uuid.uuid4())[:8]
     admin_token = str(uuid.uuid4())[:8]
@@ -155,6 +156,7 @@ async def create_match(request: Request):
         "b_name": b_name,
         "a_color": a_color,
         "b_color": b_color,
+        "mLoc": match_loc,
         "admin_token": admin_token,
         "last_updated": time.time()
     }
