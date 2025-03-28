@@ -177,6 +177,10 @@
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
 
+                if (data.redirect) {
+                    window.location.href = data.redirect;  // Redirect to archive page
+                    return;
+                }
                 if (data.error === "Match expired") {
                     alert("This match has expired. Redirecting to homepage.");
                     window.location.href = "/";
@@ -242,9 +246,20 @@
         document.getElementById("teamA").addEventListener("click", () => sendUpdate("increment", "teamA"));
         document.getElementById("teamB").addEventListener("click", () => sendUpdate("increment", "teamB"));
         document.getElementById("currentSet").addEventListener("click", () => {
-            if (confirm("End current set and start new set?")) {
+            const choice = confirm("End current set and start a new one?\n\n(OK = New Set, Cancel = More Options)");
+
+            if (choice) {
+                // User chose "New Set"
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ action: "new_set" }));
+                }
+            } else {
+                // Prompt for End Match confirmation
+                const endMatch = confirm("End the match?\n\n(OK = End Match, Cancel = Do Nothing)");
+                if (endMatch) {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ action: "end_match" }));
+                    }
                 }
             }
         });

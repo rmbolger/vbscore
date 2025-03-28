@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match Archive</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f8f8;
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+            overflow-x: hidden;
+        }
+        .match-container {
+            width: 100%;
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        .match-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 1.5em;
+        }
+        .match-table th, .match-table td {
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+        }
+        .match-table th {
+            background-color: #eaeaea;
+            font-weight: bold;
+        }
+        .team-name {
+            padding: 15px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+        }
+    </style>
+</head>
+<body>
+    <div class="match-container">
+        <p id="matchDate"></p>
+        <p id="matchLocation"></p>
+        <table class="match-table">
+            <thead>
+                <tr>
+                    <th>Team</th>
+                    <th>Wins</th>
+                    <th colspan="5">Scores</th>
+                </tr>
+            </thead>
+            <tbody id="matchData">
+                <!-- Match data will be populated dynamically -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const encodedState = urlParams.get("state");
+
+        if (encodedState) {
+            const jsonString = atob(encodedState.replace(/-/g, '+').replace(/_/g, '/'));
+            const matchData = JSON.parse(jsonString);
+            document.getElementById("matchDate").textContent = `${matchData.mDate}`;
+            if (matchData.mLoc) {
+                document.getElementById("matchLocation").textContent = `@ ${matchData.mLoc}`;
+            }
+            const tableBody = document.getElementById("matchData");
+
+            function createRow(team, opponentWins, scores) {
+                let isWinner = team.wins > opponentWins;
+                let row = `<tr>
+                    <td class='team-name' style='background-color: ${team.color};'>${team.name}</td>
+                    <td style='${isWinner ? "font-weight: bold;" : ""}'>${team.wins}</td>`;
+
+                scores.forEach(score => {
+                    row += `<td style='${score === Math.max(...scores) ? "font-weight: bold;" : ""}'>${score}</td>`;
+                });
+
+                row += `</tr>`;
+                return row;
+            }
+
+            let rowA = createRow(matchData.tA, matchData.tB.wins, matchData.tA.scores);
+            let rowB = createRow(matchData.tB, matchData.tA.wins, matchData.tB.scores);
+
+            tableBody.innerHTML = rowA + rowB;
+        }
+    </script>
+</body>
+</html>

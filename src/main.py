@@ -1,11 +1,13 @@
 """Volleyball Scoreboard App"""
 
+import base64
 import json
 import uuid
 import time
 import asyncio
 import logging
 import sys
+from datetime import datetime
 from contextlib import asynccontextmanager
 from fastapi import (
     FastAPI, WebSocket, WebSocketDisconnect,
@@ -58,6 +60,50 @@ async def cleanup_matches():
             del connections[match_id]
             logging.info("Match %s expired and was removed.", match_id)
         await asyncio.sleep(600)  # Run cleanup every 10 minutes
+
+def encode_match_state(match):
+    """Encodes a match state into a structured JSON object for archiving."""
+    match_state = {
+        "mDate": datetime.now().strftime("%Y-%m-%d"),  # Match date in local time
+        "mLoc": "",  # Placeholder for location
+        "tA": {
+            "name": match["a_name"],
+            "color": match["a_color"],
+            "wins": 0,  # To be calculated
+            "scores": []
+        },
+        "tB": {
+            "name": match["b_name"],
+            "color": match["b_color"],
+            "wins": 0,  # To be calculated
+            "scores": []
+        }
+    }
+
+    # Process completed set scores
+    for set_score in match["sets"]:
+        match_state["tA"]["scores"].append(set_score["teamA"])
+        match_state["tB"]["scores"].append(set_score["teamB"])
+
+    # Add final in-progress set to scores
+    match_state["tA"]["scores"].append(match["score"]["teamA"])
+    match_state["tB"]["scores"].append(match["score"]["teamB"])
+
+    # Calculate wins per team
+    for a, b in zip(match_state["tA"]["scores"], match_state["tB"]["scores"]):
+        if a > b:
+            match_state["tA"]["wins"] += 1
+        elif b > a:
+            match_state["tB"]["wins"] += 1
+
+    # Convert to JSON string
+    json_string = json.dumps(match_state, separators=(",", ":"))
+    logger.info(json_string)
+
+    # Encode as Base64Url (without padding)
+    encoded_state = base64.urlsafe_b64encode(json_string.encode()).decode().rstrip("=")
+
+    return encoded_state
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -130,6 +176,11 @@ async def serve_scoreboard(match_id: str):
         return RedirectResponse("/")
     return FileResponse("static/scoreboard.html")
 
+@app.get("/archive")
+async def serve_archive():
+    """Serve the archive page."""
+    return FileResponse("static/archive.html")
+
 @app.websocket("/ws/{match_id}")
 async def websocket_endpoint(match_id: str, websocket: WebSocket, token: str = None):
     """Handles WebSocket connections for live score updates."""
@@ -176,6 +227,18 @@ async def websocket_endpoint(match_id: str, websocket: WebSocket, token: str = N
                     matches[match_id]["score"] = {"teamA": 0, "teamB": 0}
                     # Increment set number
                     matches[match_id]["current_set"] += 1
+                elif update["action"] == "end_match":
+                    match = matches[match_id]
+                    if not match.get("archived",False):
+                        # Encode the game state into JSON and Base64
+                        encoded_state = encode_match_state(match)
+                        archive_url = f"/archive?state={encoded_state}"
+
+                        # Mark match as archived in memory
+                        match["archived"] = True
+
+                        # Send archive URL to the user who requested match end
+                        await websocket.send_json({"redirect": archive_url})
 
                 matches[match_id]["last_updated"] = time.time()
 
