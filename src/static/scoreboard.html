@@ -164,7 +164,7 @@
 
         let ws;
         let reconnectAttempts = 0;
-        let reconnectInterval = 2000; // Start with 2s, max 30s
+        let reconnectInterval = 1000; // Start with 2s, max 30s
 
         function connectWebSocket() {
             ws = new WebSocket(wsUrl);
