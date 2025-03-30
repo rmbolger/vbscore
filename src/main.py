@@ -113,10 +113,12 @@ app = FastAPI(lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
 @app.get("/")
 async def serve_home():
     """Serve the match creation page."""
     return FileResponse("static/index.html")
+
 
 @app.post("/create_match")
 async def create_match(request: Request):
@@ -164,9 +166,10 @@ async def create_match(request: Request):
     admin_link = f"{base_url}/scoreboard/{match_id}?token={admin_token}"
     viewer_link = f"{base_url}/scoreboard/{match_id}"
 
-    logging.info("Match %s created by %s", match_id, client_ip)
+    logging.info("%s Created match %s", client_ip, match_id)
 
     return {"admin_link": admin_link, "viewer_link": viewer_link}
+
 
 @app.get("/scoreboard/{match_id}")
 async def serve_scoreboard(match_id: str):
@@ -180,135 +183,142 @@ async def serve_scoreboard(match_id: str):
         encoded_state = encode_match_state(matches[match_id])
         archive_url = f"/archive?state={encoded_state}"
         return RedirectResponse(archive_url)
-    else:
-        logging.info("Match %s not ended, sending scoreboard", match_id)
 
     return FileResponse("static/scoreboard.html")
+
 
 @app.get("/archive")
 async def serve_archive():
     """Serve the archive page."""
     return FileResponse("static/archive.html")
 
+
 @app.websocket("/ws/{match_id}")
 async def websocket_endpoint(match_id: str, websocket: WebSocket, token: str = None):
     """Handles WebSocket connections for live score updates."""
 
-    client_ip,_ = websocket.client
     await websocket.accept()
 
-    # If match does not exist, explicitly close with 1008 before returning
-    if match_id not in matches:
-        logging.warning("%s attempted connection to non-existent match %s", client_ip, match_id)
-        await websocket.send_json({"redirect": "/"})
-        await websocket.close(code=status.WS_1000_NORMAL_CLOSURE)
+    # Handle invalid or ended matches early
+    if await handle_invalid_match(match_id, websocket):
+        return
+    if await handle_ended_match(match_id, websocket):
         return
 
-    # If the match is over already, redirect to the archive
-    if matches[match_id]["ended"]:
-        # Encode the game state into JSON and Base64
-        encoded_state = encode_match_state(matches[match_id])
-        archive_url = f"/archive?state={encoded_state}"
-
-        # Send redirect
-        await websocket.send_json({"redirect": archive_url})
-        await websocket.close(code=status.WS_1000_NORMAL_CLOSURE)
-        return
-
-    # add to the client list for this match
+    # Track session
     session_id = str(uuid.uuid4())[:8]
     is_admin = token == matches[match_id]["admin_token"]
-    sessions[match_id].append({"session_id": session_id, "websocket": websocket})
-    logging.info("%s: WebSocket connection opened for match %s (Admin: %s)",
-                 session_id, match_id, is_admin)
+    add_session(match_id, session_id, websocket)
 
     try:
-        # send the current match state to this client
         await websocket.send_json(matches[match_id])
 
         while True:
             data = await websocket.receive_text()
-
-            if match_id not in matches:
-                logging.warning("%s: Match %s was deleted while WebSocket was active",
-                                session_id, match_id)
-                await websocket.send_json({"error": "Match expired"})
-                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            if await handle_invalid_match(match_id, websocket):
                 return
 
-            # ignore inbound messages from non-admin clients
             if not is_admin:
-                continue
+                continue  # Ignore non-admin input
 
-            match = matches[match_id]
             update = json.loads(data)
+            if await process_admin_action(match_id, session_id, update):
+                return  # Match ended, connections closed
 
-            if update["action"] == "increment":
-                match["score"][update["team"]] += 1
-
-            elif update["action"] == "decrement":
-                if match["score"][update["team"]] > 0:
-                    match["score"][update["team"]] -= 1
-
-            elif update["action"] == "reset":
-                match["score"] = {"teamA": 0, "teamB": 0}
-
-            elif update["action"] == "new_set":
-                # Store set scores and reset live score
-                match["sets"].append(match["score"].copy())
-                match["score"] = {"teamA": 0, "teamB": 0}
-
-                # Increment the set unless this had to be the end of the match
-                if match["current_set"] < 5:
-                    match["current_set"] += 1
-                else:
-                    match["ended"] = True
-
-                    # Encode the game state into JSON and Base64
-                    encoded_state = encode_match_state(match)
-                    archive_url = f"/archive?state={encoded_state}"
-
-                    # Send archive URL to all clients
-                    for conn in sessions[match_id]:
-                        await conn["websocket"].send_json({"redirect": archive_url})
-                        await conn["websocket"].close(code=status.WS_1000_NORMAL_CLOSURE)
-                    return
-
-            elif update["action"] == "end_match":
-                # Store set scores and reset live score
-                match["sets"].append(match["score"].copy())
-                match["score"] = {"teamA": 0, "teamB": 0}
-
-                match["ended"] = True
-
-                # Encode the game state into JSON and Base64
-                encoded_state = encode_match_state(match)
-                archive_url = f"/archive?state={encoded_state}"
-
-                # Send archive URL to all clients
-                for conn in sessions[match_id]:
-                    await conn["websocket"].send_json({"redirect": archive_url})
-                    await conn["websocket"].close(code=status.WS_1000_NORMAL_CLOSURE)
-                return
-
-            else:
-                logging.warning("%s: Unrecognized action sent: %s",
-                               session_id, update.get("action",""))
-
-            # Update game state for all clients
-            match["last_updated"] = time.time()
-            if not match["ended"]:
-                for conn in sessions[match_id]:
-                    await conn["websocket"].send_json(matches[match_id])
+            # Broadcast updated state
+            if not matches[match_id]["ended"]:
+                await broadcast_state(match_id)
 
     except WebSocketDisconnect:
-        logging.info("%s: WebSocket connection closed for match %s", session_id, match_id)
+        pass
     finally:
-        if match_id in sessions:
-            # re-write the session list without this client
-            sessions[match_id] = [c for c in sessions[match_id] if c["websocket"] != websocket]
+        await remove_session(match_id, session_id, websocket)
 
+
+async def handle_invalid_match(match_id, websocket):
+    """Close WebSocket if the match doesn't exist."""
+    if match_id not in matches:
+        client_ip,_ = websocket.client
+        logging.warning("%s attempted connection to non-existent match %s", client_ip, match_id)
+        await websocket.send_json({"redirect": "/"})
+        await websocket.close(code=status.WS_1000_NORMAL_CLOSURE)
+        return True
+    return False
+
+
+async def handle_ended_match(match_id, websocket):
+    """Redirect client if the match has ended."""
+    if matches[match_id]["ended"]:
+        archive_url = f"/archive?state={encode_match_state(matches[match_id])}"
+        await websocket.send_json({"redirect": archive_url})
+        await websocket.close(code=status.WS_1000_NORMAL_CLOSURE)
+        return True
+    return False
+
+
+def add_session(match_id, session_id, websocket):
+    """Add a new session to the tracking list."""
+    if match_id in sessions:
+        sessions[match_id].append({"session_id": session_id, "websocket": websocket})
+        logging.info("%s:%s WebSocket connection opened", match_id, session_id)
+
+
+async def remove_session(match_id, session_id, websocket):
+    """Remove a WebSocket session from tracking."""
+    if match_id in sessions:
+        logging.info("%s:%s WebSocket connection closing", match_id, session_id)
+        sessions[match_id] = [s for s in sessions[match_id] if s["websocket"] != websocket]
+    try:
+        await websocket.close(code=status.WS_1000_NORMAL_CLOSURE)
+    except Exception:  # pylint: disable=broad-except
+        pass  # Ignore if already closed
+
+
+async def process_admin_action(match_id, session_id, update):
+    """Process admin actions and return True if the match ended."""
+    match = matches[match_id]
+
+    if update["action"] == "increment":
+        match["score"][update["team"]] += 1
+
+    elif update["action"] == "decrement" and match["score"][update["team"]] > 0:
+        match["score"][update["team"]] -= 1
+
+    elif update["action"] == "reset":
+        match["score"] = {"teamA": 0, "teamB": 0}
+
+    elif update["action"] in ("new_set", "end_match"):
+        match["sets"].append(match["score"].copy())
+        match["score"] = {"teamA": 0, "teamB": 0}
+        match["ended"] = update["action"] == "end_match" or match["current_set"] >= 5
+
+        if not match["ended"]:
+            match["current_set"] += 1
+        else:
+            archive_url = f"/archive?state={encode_match_state(match)}"
+            await broadcast_redirect(match_id, archive_url)
+            return True
+
+    else:
+        logging.warning("%s:%s Unrecognized action sent: %s",
+                        match_id, session_id, update["action"])
+
+    return False
+
+
+async def broadcast_state(match_id):
+    """Send the updated game state to all connected clients."""
+    match_data = matches[match_id]
+    for session in sessions[match_id]:
+        await session["websocket"].send_json(match_data)
+
+
+async def broadcast_redirect(match_id, url):
+    """Send a redirect message to all clients and close their WebSockets."""
+    logging.info("%s Sending redirect to all clients for this match.", match_id)
+    for session in sessions[match_id]:
         try:
-            await websocket.close(code=status.WS_1000_NORMAL_CLOSURE)
-        except Exception: # pylint: disable=broad-except
-            pass  # Ignore errors if the socket is already closed
+            await session["websocket"].send_json({"redirect": url})
+            await session["websocket"].close(code=status.WS_1000_NORMAL_CLOSURE)
+        except Exception as e:  # pylint: disable=broad-except
+            logging.warning("%s:%s Error closing WebSocket: %s", match_id, session["session_id"], e)
