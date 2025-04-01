@@ -144,7 +144,9 @@ async def create_match(request: Request):
     b_color = form.get("b_color", "blue")
     match_loc = html.escape(form.get("mLoc", "")[:20])
 
-    match_id = str(uuid.uuid4())[:8]
+    match_id = None
+    while not match_id or match_id in matches:
+        match_id = str(uuid.uuid4())[:8]
     admin_token = str(uuid.uuid4())[:8]
 
     matches[match_id] = {
