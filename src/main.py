@@ -69,13 +69,15 @@ def encode_match_state(match):
         "mLoc": match["mLoc"],
         "tA": {
             "name": match["a_name"],
-            "color": match["a_color"],
+            "cBG": match["a_color_bg"],
+            "cFG": match["a_color_fg"],
             "wins": 0,  # To be calculated
             "scores": []
         },
         "tB": {
             "name": match["b_name"],
-            "color": match["b_color"],
+            "cBG": match["b_color_bg"],
+            "cFG": match["b_color_fg"],
             "wins": 0,  # To be calculated
             "scores": []
         }
@@ -140,8 +142,10 @@ async def create_match(request: Request):
     form = await request.form()
     a_name = html.escape(form.get("a_name", "Team A")[:20])
     b_name = html.escape(form.get("b_name", "Team B")[:20])
-    a_color = form.get("a_color", "red")
-    b_color = form.get("b_color", "blue")
+    a_color_bg = form.get("a_color", "#FF0000") # red default
+    b_color_bg = form.get("b_color", "#0000FF") # blue default
+    a_color_fg = get_contrast_color(a_color_bg)
+    b_color_fg = get_contrast_color(b_color_bg)
     match_loc = html.escape(form.get("mLoc", "")[:20])
 
     match_id = None
@@ -155,12 +159,15 @@ async def create_match(request: Request):
         "score": {"teamA": 0, "teamB": 0},
         "a_name": a_name,
         "b_name": b_name,
-        "a_color": a_color,
-        "b_color": b_color,
+        "a_color_bg": a_color_bg,
+        "b_color_bg": b_color_bg,
+        "a_color_fg": a_color_fg,
+        "b_color_fg": b_color_fg,
         "mLoc": match_loc,
         "admin_token": admin_token,
         "last_updated": time.time(),
-        "ended": False
+        "ended": False,
+        "viewers": 0
     }
     sessions[match_id] = []
 
@@ -263,13 +270,16 @@ def add_session(match_id, session_id, websocket):
     if match_id in sessions:
         sessions[match_id].append({"session_id": session_id, "websocket": websocket})
         logging.info("%s:%s WebSocket connection opened", match_id, session_id)
-
+    if match_id in matches:
+        matches[match_id]["viewers"] = len(sessions[match_id])
 
 async def remove_session(match_id, session_id, websocket):
     """Remove a WebSocket session from tracking."""
     if match_id in sessions:
         logging.info("%s:%s WebSocket connection closing", match_id, session_id)
         sessions[match_id] = [s for s in sessions[match_id] if s["websocket"] != websocket]
+    if match_id in matches:
+        matches[match_id]["viewers"] = len(sessions[match_id])
     try:
         await websocket.close(code=status.WS_1000_NORMAL_CLOSURE)
     except Exception:  # pylint: disable=broad-except
@@ -326,3 +336,28 @@ async def broadcast_redirect(match_id, url):
             await session["websocket"].close(code=status.WS_1000_NORMAL_CLOSURE)
         except Exception as e:  # pylint: disable=broad-except
             logging.warning("%s:%s Error closing WebSocket: %s", match_id, session["session_id"], e)
+
+def relative_luminance(r, g, b):
+    """Compute relative luminance as per WCAG 2.1."""
+    def adjust(c):
+        c = c / 255.0
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    r, g, b = adjust(r), adjust(g), adjust(b)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+def get_contrast_color(hex_color: str) -> str:
+    """Returns black (#000000) or white (#FFFFFF) based on WCAG contrast ratio."""
+    hex_color = hex_color.lstrip("#")
+    r, g, b = (int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+    # Calculate contrast ratio against white and black
+    lum_bg = relative_luminance(r, g, b)
+    lum_white = relative_luminance(255, 255, 255)
+    lum_black = relative_luminance(0, 0, 0)
+
+    contrast_white = (lum_white + 0.05) / (lum_bg + 0.05)
+    contrast_black = (lum_bg + 0.05) / (lum_black + 0.05)
+
+    # Choose the text color that provides better contrast
+    return "#FFFFFF" if contrast_white > contrast_black else "#000000"

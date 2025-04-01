@@ -75,6 +75,17 @@
             flex-wrap: wrap;
         }
 
+        /* Set history position */
+        #viewers {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            display: flex;
+            flex-direction: row;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
         /* Individual set score */
         .set-score {
             font-size: 0.9rem;
@@ -205,11 +216,17 @@
 
                 document.getElementById("scoreA").textContent = data.score.teamA;
                 document.getElementById("scoreB").textContent = data.score.teamB;
-                document.getElementById("teamA").style.backgroundColor = data.a_color;
-                document.getElementById("teamB").style.backgroundColor = data.b_color;
+                document.getElementById("teamA").style.backgroundColor = data.a_color_bg;
+                document.getElementById("teamB").style.backgroundColor = data.b_color_bg;
+                document.getElementById("teamA").style.color = data.a_color_fg;
+                document.getElementById("teamB").style.color = data.b_color_fg;
                 document.getElementById("teamAName").textContent = data.a_name;
                 document.getElementById("teamBName").textContent = data.b_name;
                 document.getElementById("currentSet").textContent = data.current_set;
+                if (isAdmin) {
+                    document.getElementById("viewers").textContent = `${data.viewers} 👀`;
+                    document.getElementById("viewers").style.color = data.b_color_fg;
+                }
 
                 // Display previous set scores
                 const setsContainer = document.getElementById("setsHistory");

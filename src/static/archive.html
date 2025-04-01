@@ -87,9 +87,9 @@
                 document.getElementById("matchMeta").textContent += ` @ ${matchData.mLoc}`;
             }
             document.getElementById("teamAName").textContent = matchData.tA.name;
-            document.getElementById("teamAName").style = `background-color: ${matchData.tA.color}; color: white`;
+            document.getElementById("teamAName").style = `background-color: ${matchData.tA.cBG}; color: ${matchData.tA.cFG}`;
             document.getElementById("teamBName").textContent = matchData.tB.name;
-            document.getElementById("teamBName").style = `background-color: ${matchData.tB.color}; color: white`;
+            document.getElementById("teamBName").style = `background-color: ${matchData.tB.cBG}; color: ${matchData.tB.cFG}`;
 
             const tableBody = document.getElementById("matchData");
             let rows = `<tr class="wins-row"><td class="row-label">Wins</td><td class="winner">${matchData.tA.wins}</td><td>${matchData.tB.wins}</td></tr>`;
