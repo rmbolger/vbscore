@@ -258,8 +258,7 @@
         }
 
         if (isAdmin) {
-            document.getElementById("teamA").addEventListener("click", () => sendUpdate("increment", "teamA"));
-            document.getElementById("teamB").addEventListener("click", () => sendUpdate("increment", "teamB"));
+
             document.getElementById("currentSet").addEventListener("click", () => {
                 document.getElementById("setModalOverlay").style.display = "flex";
             });
@@ -271,45 +270,96 @@
                 sendUpdate("end_match")
                 document.getElementById("setModalOverlay").style.display = "none";
             });
-            // document.getElementById("reset").addEventListener("click", () => {
-            //     sendUpdate("reset");
-            //     document.getElementById("setModalOverlay").style.display = "none";
-            // });
-        }
-
-        document.getElementById("setModalOverlay").addEventListener("click", (event) => {
-            if (event.target === document.getElementById("setModalOverlay")) {
+            document.getElementById("setModalOverlay").addEventListener("click", (event) => {
+                if (event.target === document.getElementById("setModalOverlay")) {
+                    document.getElementById("setModalOverlay").style.display = "none";
+                }
+            });
+            document.getElementById("closeModal").addEventListener("click", () => {
                 document.getElementById("setModalOverlay").style.display = "none";
-            }
-        });
-        document.getElementById("closeModal").addEventListener("click", () => {
-            document.getElementById("setModalOverlay").style.display = "none";
-        });
-
-        function handleSwipe(event, team, delta) {
-            sendUpdate(delta > 0 ? "increment" : "decrement", team);
-        }
-
-        let touchStartY = 0;
-
-        document.querySelectorAll(".team").forEach(teamElem => {
-            teamElem.addEventListener("touchstart", (e) => {
-                touchStartY = e.touches[0].clientY;
             });
 
-            teamElem.addEventListener("touchmove", (e) => {
-                e.preventDefault(); // Prevent scrolling during swipes
-            }, { passive: false });
+            let touchStartY = 0;
+            let mouseStartY = 0;
+            let isMouseDown = false;
+            let preventClick = false;
 
-            teamElem.addEventListener("touchend", (e) => {
-                let touchEndY = e.changedTouches[0].clientY;
-                let deltaY = touchStartY - touchEndY;
+            function scoreChange(action, team) {
+                let score = Number(document.getElementById(team).children[0].textContent);
+                if ((action == "increment" && score < 99) ||
+                    (action == "decrement" && score > 0)) {
+                    sendUpdate(action, team)
+                }
+            }
+
+            document.querySelectorAll(".team").forEach(teamElem => {
+
                 let teamId = teamElem.id === "teamA" ? "teamA" : "teamB";
 
-                if (deltaY > 30) handleSwipe(e, teamId, 1); // Swipe Up -> Increase Score
-                if (deltaY < -30) handleSwipe(e, teamId, -1); // Swipe Down -> Decrease Score
+                teamElem.addEventListener("click", (e) => {
+                    if (preventClick) {
+                        // Prevent click from firing after a swipe
+                        e.stopImmediatePropagation();
+                    } else {
+                        scoreChange("increment", teamId);
+                    }
+                });
+
+                // Touch events
+                teamElem.addEventListener("touchstart", (e) => {
+                    touchStartY = e.touches[0].clientY;
+                });
+
+                teamElem.addEventListener("touchmove", (e) => {
+                    // Prevent scrolling during swipes
+                    e.preventDefault();
+                }, { passive: false });
+
+                teamElem.addEventListener("touchend", (e) => {
+                    let touchEndY = e.changedTouches[0].clientY;
+                    let deltaY = touchStartY - touchEndY;
+
+                    if (deltaY > 30) scoreChange("increment", teamId); // Swipe Up -> Increase Score
+                    if (deltaY < -30) scoreChange("decrement", teamId);; // Swipe Down -> Decrease Score
+                });
+
+                // Mouse events
+                teamElem.addEventListener("mousedown", (e) => {
+                    isMouseDown = true;
+                    mouseStartY = e.clientY;
+                    preventClick = false;
+                });
+
+                teamElem.addEventListener("mousemove", (e) => {
+                    if (!isMouseDown) return;
+                    if (Math.abs(e.clientY - mouseStartY) > 10) {
+                        preventClick = true; // Mark as swipe, prevent click
+                    }
+                });
+
+                teamElem.addEventListener("mouseup", (e) => {
+                    if (!isMouseDown) return;
+                    isMouseDown = false;
+
+                    let mouseEndY = e.clientY;
+                    let deltaY = mouseStartY - mouseEndY;
+
+                    if (deltaY > 30) scoreChange("increment", teamId); // Swipe Up -> Increase Score
+                    if (deltaY < -30) scoreChange("decrement", teamId); // Swipe Down -> Decrease Score
+                });
+
+                // Ensure mouse gesture doesn't stay active if user leaves the element
+                teamElem.addEventListener("mouseleave", () => {
+                    isMouseDown = false;
+                });
+
+                // document.getElementById("reset").addEventListener("click", () => {
+                //     sendUpdate("reset");
+                //     document.getElementById("setModalOverlay").style.display = "none";
+                // });
             });
-        });
+
+        }
 
     </script>
 </body>

@@ -281,10 +281,12 @@ async def process_admin_action(match_id, session_id, update):
     match = matches[match_id]
 
     if update["action"] == "increment":
-        match["score"][update["team"]] += 1
+        if match["score"][update["team"]] < 99: # don't go 3-digit
+            match["score"][update["team"]] += 1
 
-    elif update["action"] == "decrement" and match["score"][update["team"]] > 0:
-        match["score"][update["team"]] -= 1
+    elif update["action"] == "decrement":
+        if match["score"][update["team"]] > 0:  # don't go negative
+            match["score"][update["team"]] -= 1
 
     elif update["action"] == "reset":
         match["score"] = {"teamA": 0, "teamB": 0}
