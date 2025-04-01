@@ -43,14 +43,16 @@
         .score {
             font-size: 22vw;
             font-weight: bold;
+            text-shadow: 1px 1px 2px black;
         }
 
         /* Team name styling */
         .team-name {
             font-size: 5vw;
+            text-shadow: 1px 1px 2px black;
         }
 
-        /* Current set display - larger text with background */
+        /* Current set display */
         #currentSet {
             position: absolute;
             font-weight: bold;
@@ -60,16 +62,7 @@
             border-radius: 10px;
         }
 
-        /* Reset button */
-        #reset {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px 20px;
-            border-radius: 10px;
-            cursor: pointer;
-        }
-
-        /* Set history position - Bottom Left */
+        /* Set history position */
         #setsHistory {
             position: absolute;
             top: 10px;
@@ -92,17 +85,40 @@
             text-align: center;
         }
 
+        /* Set actions modal dialog */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100svw;
+            height: 100svh;
+            background: transparent;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal {
+            background: rgba(0, 0, 0, 0.7);
+            color: black;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+            text-align: center;
+        }
+
+        .modal button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
         /* Default to landscape mode (current set at top center) */
         @media (orientation: landscape) {
             #currentSet {
                 font-size: 4vw;
                 top: 10px;
-                left: 50%;
-                transform: translateX(-50%);
-            }
-            #reset {
-                font-size: 3vw;
-                bottom: 10px;
                 left: 50%;
                 transform: translateX(-50%);
             }
@@ -113,12 +129,6 @@
             #currentSet {
                 font-size: 4vh;
                 left: 10px;
-                top: 50%;
-                transform: translateY(-50%);
-            }
-            #reset {
-                font-size: 3vh;
-                right: 10px;
                 top: 50%;
                 transform: translateY(-50%);
             }
@@ -144,9 +154,16 @@
             <div class="score" id="scoreB">0</div>
             <div class="team-name" id="teamBName">Team B</div>
         </div>
-        <div id="reset" class="reset" style="display: none;">Reset</div>
         <div id="currentSet" class="set-number">Set 1</div>
         <div id="setsHistory" class="sets-history"></div>
+    </div>
+    <div id="setModalOverlay" class="modal-overlay">
+        <div id="setModal" class="modal">
+            <button id="newSetBtn">New Set</button>
+            <button id="endMatchBtn">End Match</button>
+            <!-- <button id="reset">Reset Scores</button> -->
+            <button id="closeModal">Cancel</button>
+        </div>
     </div>
 
     <script>
@@ -154,10 +171,6 @@
         const matchId = window.location.pathname.split("/").pop();
         const token = urlParams.get("token");
         const isAdmin = token; // Simple check for admin (token existence)
-
-        if (isAdmin) {
-            document.getElementById("reset").style.display = "block";
-        }
 
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const wsUrl = `${protocol}//${window.location.host}/ws/${matchId}${token ? `?token=${token}` : ''}`;
@@ -243,25 +256,33 @@
             }
         }
 
-        document.getElementById("teamA").addEventListener("click", () => sendUpdate("increment", "teamA"));
-        document.getElementById("teamB").addEventListener("click", () => sendUpdate("increment", "teamB"));
-        document.getElementById("currentSet").addEventListener("click", () => {
-            const choice = confirm("End current set and start a new one?\n\n(OK = New Set, Cancel = More Options)");
+        if (isAdmin) {
+            document.getElementById("teamA").addEventListener("click", () => sendUpdate("increment", "teamA"));
+            document.getElementById("teamB").addEventListener("click", () => sendUpdate("increment", "teamB"));
+            document.getElementById("currentSet").addEventListener("click", () => {
+                document.getElementById("setModalOverlay").style.display = "flex";
+            });
+            document.getElementById("newSetBtn").addEventListener("click", () => {
+                sendUpdate("new_set")
+                document.getElementById("setModalOverlay").style.display = "none";
+            });
+            document.getElementById("endMatchBtn").addEventListener("click", () => {
+                sendUpdate("end_match")
+                document.getElementById("setModalOverlay").style.display = "none";
+            });
+            // document.getElementById("reset").addEventListener("click", () => {
+            //     sendUpdate("reset");
+            //     document.getElementById("setModalOverlay").style.display = "none";
+            // });
+        }
 
-            if (choice) {
-                // User chose "New Set"
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ action: "new_set" }));
-                }
-            } else {
-                // Prompt for End Match confirmation
-                const endMatch = confirm("End the match?\n\n(OK = End Match, Cancel = Do Nothing)");
-                if (endMatch) {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({ action: "end_match" }));
-                    }
-                }
+        document.getElementById("setModalOverlay").addEventListener("click", (event) => {
+            if (event.target === document.getElementById("setModalOverlay")) {
+                document.getElementById("setModalOverlay").style.display = "none";
             }
+        });
+        document.getElementById("closeModal").addEventListener("click", () => {
+            document.getElementById("setModalOverlay").style.display = "none";
         });
 
         function handleSwipe(event, team, delta) {
@@ -289,9 +310,6 @@
             });
         });
 
-        document.getElementById("reset").addEventListener("click", () => {
-            sendUpdate("reset");
-        });
     </script>
 </body>
 </html>
