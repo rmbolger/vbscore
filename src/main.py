@@ -24,7 +24,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 #LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
 LOG_FORMAT = "[%(asctime)s] [%(levelname)s] %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-MATCHES_FILE = Path(os.getenv("MATCHES_FILE", "/opt/scorekeeper-data/matches.json"))
+MATCHES_FILE = Path(os.getenv("MATCHES_FILE", "/opt/vbscore-data/matches.json"))
 
 # Create a handler with the custom format
 formatter = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
