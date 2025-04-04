@@ -57,8 +57,6 @@
 </head>
 <body>
     <div class="match-header">
-        <!-- <h2>Match Results</h2>
-        <p id="matchMeta"></p> -->
         <p><span style="font-weight: bold; font-size: larger;">Match Results</span><br/>
         <span id="matchMeta"></span></p>
     </div>
@@ -76,30 +74,39 @@
     </table>
 
     <script>
+        function formatEpochDate(timestamp) {
+            const date = new Date(timestamp * 1000); // Convert from seconds to ms
+            return date.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
         const encodedState = urlParams.get("state");
 
         if (encodedState) {
             const jsonString = atob(encodedState.replace(/-/g, '+').replace(/_/g, '/'));
             const matchData = JSON.parse(jsonString);
-            document.getElementById("matchMeta").textContent = `${matchData.mDate}`;
-            if (matchData.mLoc) {
-                document.getElementById("matchMeta").textContent += ` @ ${matchData.mLoc}`;
+            document.getElementById("matchMeta").textContent = `${formatEpochDate(matchData.d)}`;
+            if (matchData.l) {
+                document.getElementById("matchMeta").textContent += ` @ ${matchData.l}`;
             }
-            document.getElementById("teamAName").textContent = matchData.tA.name;
-            document.getElementById("teamAName").style = `background-color: ${matchData.tA.cBG}; color: ${matchData.tA.cFG}`;
-            document.getElementById("teamBName").textContent = matchData.tB.name;
-            document.getElementById("teamBName").style = `background-color: ${matchData.tB.cBG}; color: ${matchData.tB.cFG}`;
+            document.getElementById("teamAName").textContent = matchData.a.n;
+            document.getElementById("teamAName").style = `background-color: ${matchData.a.b}; color: ${matchData.a.f}`;
+            document.getElementById("teamBName").textContent = matchData.b.n;
+            document.getElementById("teamBName").style = `background-color: ${matchData.b.b}; color: ${matchData.b.f}`;
 
             const tableBody = document.getElementById("matchData");
-            let rows = `<tr class="wins-row"><td class="row-label">Wins</td><td class="winner">${matchData.tA.wins}</td><td>${matchData.tB.wins}</td></tr>`;
-            if (matchData.tA.wins < matchData.tB.wins) {
-                rows = `<tr class="wins-row"><td class="row-label">Wins</td><td>${matchData.tA.wins}</td><td class="winner">${matchData.tB.wins}</td></tr>`;
+            let rows = `<tr class="wins-row"><td class="row-label">Wins</td><td class="winner">${matchData.a.w}</td><td>${matchData.b.w}</td></tr>`;
+            if (matchData.a.w < matchData.b.w) {
+                rows = `<tr class="wins-row"><td class="row-label">Wins</td><td>${matchData.a.w}</td><td class="winner">${matchData.b.w}</td></tr>`;
             }
-            matchData.tA.scores.forEach((score, index) => {
-                let row = `<tr><td class="row-label">Set ${index + 1}</td><td class="winner">${score}</td><td>${matchData.tB.scores[index]}</td></tr>`;
-                if (score < matchData.tB.scores[index]) {
-                    row = `<tr><td class="row-label">Set ${index + 1}</td><td>${score}</td><td class="winner">${matchData.tB.scores[index]}</td></tr>`;
+            matchData.a.s.forEach((score, index) => {
+                let row = `<tr><td class="row-label">Set ${index + 1}</td><td class="winner">${score}</td><td>${matchData.b.s[index]}</td></tr>`;
+                if (score < matchData.b.s[index]) {
+                    row = `<tr><td class="row-label">Set ${index + 1}</td><td>${score}</td><td class="winner">${matchData.b.s[index]}</td></tr>`;
                 }
                 rows += row;
             });

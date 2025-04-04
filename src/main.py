@@ -93,38 +93,39 @@ async def cleanup_matches():
 def encode_match_state(match):
     """Encodes a match state into a structured JSON object for archiving."""
     match_state = {
-        "mDate": datetime.now().strftime("%Y-%m-%d"),  # Match date in local time
-        "mLoc": match["mLoc"],
-        "tA": {
-            "name": match["a_name"],
-            "cBG": match["a_color_bg"],
-            "cFG": match["a_color_fg"],
-            "wins": 0,  # To be calculated
-            "scores": []
+        "v": 1,  # schema version
+        "d": int(datetime.now().timestamp()),  # epoch timestamp
+        "l": match["mLoc"],
+        "a": {
+            "n": match["a_name"],
+            "b": match["a_color_bg"],
+            "f": match["a_color_fg"],
+            "w": 0,  # Wins (to be calculated)
+            "s": []  # Scores (to be added)
         },
-        "tB": {
-            "name": match["b_name"],
-            "cBG": match["b_color_bg"],
-            "cFG": match["b_color_fg"],
-            "wins": 0,  # To be calculated
-            "scores": []
+        "b": {
+            "n": match["b_name"],
+            "b": match["b_color_bg"],
+            "f": match["b_color_fg"],
+            "w": 0,  # Wins (to be calculated)
+            "s": []  # Scores (to be added)
         }
     }
 
     # Process completed set scores
     for set_score in match["sets"]:
-        match_state["tA"]["scores"].append(set_score["teamA"])
-        match_state["tB"]["scores"].append(set_score["teamB"])
+        match_state["a"]["s"].append(set_score["teamA"])
+        match_state["b"]["s"].append(set_score["teamB"])
 
     # Calculate wins per team
-    for a, b in zip(match_state["tA"]["scores"], match_state["tB"]["scores"]):
+    for a, b in zip(match_state["a"]["s"], match_state["b"]["s"]):
         if a > b:
-            match_state["tA"]["wins"] += 1
+            match_state["a"]["w"] += 1
         elif b > a:
-            match_state["tB"]["wins"] += 1
+            match_state["b"]["w"] += 1
 
     # Convert to JSON string
-    json_string = json.dumps(match_state, separators=(",", ":"))
+    json_string = json.dumps(match_state)
     logging.debug(json_string)
 
     # Encode as Base64Url (without padding)
