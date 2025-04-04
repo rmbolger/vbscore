@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Scoreboard</title>
+    <title>Volleyball Scoreboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body {
@@ -112,7 +112,7 @@
     </style>
 </head>
 <body>
-    <h1>Live Scoreboard</h1>
+    <h1>Volleyball Scoreboard</h1>
 
     <form id="matchForm">
         <div class="form-group">
@@ -146,7 +146,15 @@
         <div id="qrcode"></div>
     </div>
 
-    <p>Use this tool to create a live scoreboard that you can update and others can view. Enter team names, select colors, and click Create Match. A Scorekeeper link is generated for you to update the score. A Viewer link and QR code is generated for your friends so they can see the updates in real time.</p>
+    <p>Create a volleyball scoreboard that you can update while others view in real time from
+    their own device. Enter team names, select colors, add optional location, and Create Match.
+    A Scorekeeper link is generated for you to update the score. Send your friends the Viewer
+    link or have them scan the QR code from your device.</p>
+
+    <p>On the Scorekeeper page, tap or swipe up to increment the score for that team. Swipe down
+    to decrement the score. Tap the set number in the middle to open options for starting a new
+    set or ending the match. When the match is over, all viewers are redirected to a Match Results
+    page that can be bookmarked for historical purposes.</p>
 
     <script>
         document.getElementById("matchForm").onsubmit = async function(event) {
