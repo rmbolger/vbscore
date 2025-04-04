@@ -9,6 +9,7 @@ import asyncio
 import logging
 import sys
 import os
+import zlib
 from datetime import datetime
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -125,12 +126,12 @@ def encode_match_state(match):
             match_state["b"]["w"] += 1
 
     # Convert to JSON string
-    json_string = json.dumps(match_state)
-    logging.debug(json_string)
+    json_str = json.dumps(match_state)
+    logging.debug(json_str)
 
-    # Encode as Base64Url (without padding)
-    encoded_state = base64.urlsafe_b64encode(json_string.encode()).decode().rstrip("=")
-
+    # Compress and Encode as Base64Url (without padding)
+    compressed = zlib.compress(json_str.encode())
+    encoded_state = base64.urlsafe_b64encode(compressed).decode().rstrip("=")
     return encoded_state
 
 @asynccontextmanager

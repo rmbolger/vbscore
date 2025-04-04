@@ -83,35 +83,47 @@
             });
         }
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const encodedState = urlParams.get("state");
-
-        if (encodedState) {
-            const jsonString = atob(encodedState.replace(/-/g, '+').replace(/_/g, '/'));
-            const matchData = JSON.parse(jsonString);
-            document.getElementById("matchMeta").textContent = `${formatEpochDate(matchData.d)}`;
-            if (matchData.l) {
-                document.getElementById("matchMeta").textContent += ` @ ${matchData.l}`;
-            }
-            document.getElementById("teamAName").textContent = matchData.a.n;
-            document.getElementById("teamAName").style = `background-color: ${matchData.a.b}; color: ${matchData.a.f}`;
-            document.getElementById("teamBName").textContent = matchData.b.n;
-            document.getElementById("teamBName").style = `background-color: ${matchData.b.b}; color: ${matchData.b.f}`;
-
-            const tableBody = document.getElementById("matchData");
-            let rows = `<tr class="wins-row"><td class="row-label">Wins</td><td class="winner">${matchData.a.w}</td><td>${matchData.b.w}</td></tr>`;
-            if (matchData.a.w < matchData.b.w) {
-                rows = `<tr class="wins-row"><td class="row-label">Wins</td><td>${matchData.a.w}</td><td class="winner">${matchData.b.w}</td></tr>`;
-            }
-            matchData.a.s.forEach((score, index) => {
-                let row = `<tr><td class="row-label">Set ${index + 1}</td><td class="winner">${score}</td><td>${matchData.b.s[index]}</td></tr>`;
-                if (score < matchData.b.s[index]) {
-                    row = `<tr><td class="row-label">Set ${index + 1}</td><td>${score}</td><td class="winner">${matchData.b.s[index]}</td></tr>`;
-                }
-                rows += row;
-            });
-            tableBody.innerHTML = rows;
+        async function decodeState(encoded) {
+            const compressed = Uint8Array.from(atob(encoded.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+            const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate"));
+            const text = await new Response(stream).text();
+            return JSON.parse(text);
         }
+
+        (async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedState = urlParams.get("state");
+            if (encodedState) {
+                try {
+                    const matchData = await decodeState(encodedState);
+                    console.log("Decoded match data:", matchData);
+                    document.getElementById("matchMeta").textContent = `${formatEpochDate(matchData.d)}`;
+                    if (matchData.l) {
+                        document.getElementById("matchMeta").textContent += ` @ ${matchData.l}`;
+                    }
+                    document.getElementById("teamAName").textContent = matchData.a.n;
+                    document.getElementById("teamAName").style = `background-color: ${matchData.a.b}; color: ${matchData.a.f}`;
+                    document.getElementById("teamBName").textContent = matchData.b.n;
+                    document.getElementById("teamBName").style = `background-color: ${matchData.b.b}; color: ${matchData.b.f}`;
+
+                    const tableBody = document.getElementById("matchData");
+                    let rows = `<tr class="wins-row"><td class="row-label">Wins</td><td class="winner">${matchData.a.w}</td><td>${matchData.b.w}</td></tr>`;
+                    if (matchData.a.w < matchData.b.w) {
+                        rows = `<tr class="wins-row"><td class="row-label">Wins</td><td>${matchData.a.w}</td><td class="winner">${matchData.b.w}</td></tr>`;
+                    }
+                    matchData.a.s.forEach((score, index) => {
+                        let row = `<tr><td class="row-label">Set ${index + 1}</td><td class="winner">${score}</td><td>${matchData.b.s[index]}</td></tr>`;
+                        if (score < matchData.b.s[index]) {
+                            row = `<tr><td class="row-label">Set ${index + 1}</td><td>${score}</td><td class="winner">${matchData.b.s[index]}</td></tr>`;
+                        }
+                        rows += row;
+                    });
+                    tableBody.innerHTML = rows;
+                } catch (err) {
+                    console.error("Failed to decode state:", err);
+                }
+            }
+        })();
     </script>
 </body>
 </html>
