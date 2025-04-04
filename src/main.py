@@ -8,7 +8,9 @@ import time
 import asyncio
 import logging
 import sys
+import os
 from datetime import datetime
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import (
     FastAPI, WebSocket, WebSocketDisconnect,
@@ -21,6 +23,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 #LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
 LOG_FORMAT = "[%(asctime)s] [%(levelname)s] %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+MATCHES_FILE = Path(os.getenv("MATCHES_FILE", "/opt/scorekeeper-data/matches.json"))
 
 # Create a handler with the custom format
 formatter = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
@@ -47,6 +50,31 @@ sessions = {}  # Stores active WebSocket connections
 match_creation_tracker = {}  # Tracks how many matches each IP creates
 MATCH_EXPIRY_TIME = 3 * 60 * 60  # 3 hours in seconds
 RATE_LIMIT = 20  # Max matches per IP per hour
+
+async def save_matches():
+    """Save matches to disk."""
+    try:
+        logging.info("Saving %s matches to disk.", len(matches))
+        with MATCHES_FILE.open("w", encoding="utf-8") as f:
+            json.dump(matches, f, ensure_ascii=False, indent=4)
+    except Exception as e:  # pylint: disable=broad-except
+        logging.warning("Error saving matches: %s", e)
+
+
+async def load_matches():
+    """Load matches from disk."""
+    if MATCHES_FILE.exists():
+        try:
+            with MATCHES_FILE.open("r", encoding="utf-8") as f:
+                matches.update(json.load(f))
+            for match_id,_ in matches.items():
+                sessions[match_id] = []
+            logging.info("%s matches loaded from disk.", len(matches))
+        except Exception as e:  # pylint: disable=broad-except
+            logging.warning("Error loading matches: %s", e)
+    else:
+        logging.info("No existing matches file found at %s.", MATCHES_FILE)
+
 
 async def cleanup_matches():
     """Removes matches that haven't been updated in the last 3 hours."""
@@ -107,8 +135,10 @@ def encode_match_state(match):
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Lifespan event handler to manage startup and shutdown tasks."""
+    await load_matches()  # Load matches at startup
     task = asyncio.create_task(cleanup_matches())  # Start cleanup task
     yield  # App runs here
+    await save_matches()  # Save matches on shutdown
     task.cancel()  # Cleanup on shutdown
 
 app = FastAPI(lifespan=lifespan)
