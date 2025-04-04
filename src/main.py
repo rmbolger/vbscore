@@ -178,9 +178,14 @@ async def create_match(request: Request):
     b_color_fg = get_contrast_color(b_color_bg)
     match_loc = html.escape(form.get("mLoc", "")[:20])
 
+    # generate a new match ID while avoiding duplicates
     match_id = None
     while not match_id or match_id in matches:
         match_id = str(uuid.uuid4())[:8]
+
+    # This could probably be more secure. But matches only existing for a few
+    # hours combined with the relative non-importance of the data it's protecting
+    # mean it's probably not worth using something longer and cryptographically strong.
     admin_token = str(uuid.uuid4())[:8]
 
     matches[match_id] = {
