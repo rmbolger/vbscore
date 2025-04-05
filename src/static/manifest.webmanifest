@@ -1,0 +1,10 @@
+{
+    "name": "Volleyball Scoreboard",
+    "icons": [
+      { "src": "/static/icons/icon-192.png", "type": "image/png", "sizes": "192x192" },
+      { "src": "/static/icons/icon-mask.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" },
+      { "src": "/static/icons/icon-512.png", "type": "image/png", "sizes": "512x512" }
+    ],
+    "start_url": "/",
+    "display": "minimal-ui"
+}

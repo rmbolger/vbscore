@@ -153,6 +153,10 @@ async def serve_home():
     """Serve the match creation page."""
     return FileResponse("static/index.html")
 
+@app.get("/favicon.ico")
+async def serve_favicon():
+    """Serve the site favicon."""
+    return FileResponse("static/icons/favicon.ico")
 
 @app.post("/create_match")
 async def create_match(request: Request):
