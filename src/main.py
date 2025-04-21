@@ -48,6 +48,7 @@ for logger_name in ["uvicorn", "uvicorn.access", "websockets.protocol"]:
     logger.addHandler(handler)
 
 matches = {}  # Stores match data
+match_locks = {} # Stores a Lock() object for each match to protect concurrent updates
 sessions = {}  # Stores active WebSocket connections
 match_creation_tracker = {}  # Tracks how many matches each IP creates
 MATCH_EXPIRY_TIME = 3 * 60 * 60  # 3 hours in seconds
@@ -212,6 +213,7 @@ async def create_match(request: Request):
         "ended": False,
         "viewers": 0
     }
+    match_locks[match_id] = asyncio.Lock()
     sessions[match_id] = []
 
     base_url = f"{request.url.scheme}://{request.url.netloc}"
@@ -338,26 +340,30 @@ async def process_admin_action(match_id, session_id, update):
 
     if update["action"] == "increment":
         if match["score"][update["team"]] < 99: # don't go 3-digit
-            match["score"][update["team"]] += 1
+            async with match_locks[match_id]:
+                match["score"][update["team"]] += 1
 
     elif update["action"] == "decrement":
         if match["score"][update["team"]] > 0:  # don't go negative
-            match["score"][update["team"]] -= 1
+            async with match_locks[match_id]:
+                match["score"][update["team"]] -= 1
 
     elif update["action"] == "reset":
-        match["score"] = {"teamA": 0, "teamB": 0}
+        async with match_locks[match_id]:
+            match["score"] = {"teamA": 0, "teamB": 0}
 
     elif update["action"] in ("new_set", "end_match"):
-        match["sets"].append(match["score"].copy())
-        match["score"] = {"teamA": 0, "teamB": 0}
-        match["ended"] = update["action"] == "end_match" or match["current_set"] >= 5
+        async with match_locks[match_id]:
+            match["sets"].append(match["score"].copy())
+            match["score"] = {"teamA": 0, "teamB": 0}
+            match["ended"] = update["action"] == "end_match" or match["current_set"] >= 5
 
-        if not match["ended"]:
-            match["current_set"] += 1
-        else:
-            archive_url = f"/archive?state={encode_match_state(match)}"
-            await broadcast_redirect(match_id, archive_url)
-            return True
+            if not match["ended"]:
+                match["current_set"] += 1
+            else:
+                archive_url = f"/archive?state={encode_match_state(match)}"
+                await broadcast_redirect(match_id, archive_url)
+                return True
 
     else:
         logging.warning("%s:%s Unrecognized action sent: %s",
