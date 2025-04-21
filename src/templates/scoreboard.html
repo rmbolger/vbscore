@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Volleyball Scoreboard</title>
+    <title>{{ a_name }} v {{ b_name }}{% if mLoc %} @ {{ mLoc }}{% endif %}</title>
     <link rel="manifest" href="/static/manifest.webmanifest">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" href="/static/icons/icon.0475C8270024A3B27E6B4D400577C7F5.svg" type="image/svg+xml">
@@ -41,6 +41,15 @@
             text-align: center;
             transition: all 0.3s ease;
             touch-action: manipulation;
+        }
+
+        #teamA {
+            background-color: {{ a_color_bg }};
+            color: {{ a_color_fg }};
+        }
+        #teamB {
+            background-color: {{ b_color_bg }};
+            color: {{ b_color_fg }};
         }
 
         /* Score styling */
@@ -164,15 +173,19 @@
 <body>
     <div id="scoreboard">
         <div class="team" id="teamA">
-            <div class="score" id="scoreA">0</div>
-            <div class="team-name" id="teamAName">Team A</div>
+            <div class="score" id="scoreA">{{ score.teamA }}</div>
+            <div class="team-name" id="teamAName">{{ a_name }}</div>
         </div>
         <div class="team" id="teamB">
-            <div class="score" id="scoreB">0</div>
-            <div class="team-name" id="teamBName">Team B</div>
+            <div class="score" id="scoreB">{{ score.teamB }}</div>
+            <div class="team-name" id="teamBName">{{ b_name }}</div>
         </div>
-        <div id="currentSet">1</div>
-        <div id="setsHistory"></div>
+        <div id="currentSet">{{ current_set }}</div>
+        <div id="setsHistory">
+            {% for set in sets %}
+            <div class="set-score">{{ set.teamA }}-{{ set.teamB }}</div>
+            {% endfor %}
+        </div>
         <div id="viewers"></div>
     </div>
     <div id="actionsOverlay">

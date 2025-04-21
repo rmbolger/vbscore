@@ -19,6 +19,7 @@ from fastapi import (
 )
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
 
 # Define log format
 #LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
@@ -51,6 +52,7 @@ sessions = {}  # Stores active WebSocket connections
 match_creation_tracker = {}  # Tracks how many matches each IP creates
 MATCH_EXPIRY_TIME = 3 * 60 * 60  # 3 hours in seconds
 RATE_LIMIT = 20  # Max matches per IP per hour
+templates = Jinja2Templates(directory="templates")
 
 async def save_matches():
     """Save matches to disk."""
@@ -222,7 +224,7 @@ async def create_match(request: Request):
 
 
 @app.get("/scoreboard/{match_id}")
-async def serve_scoreboard(match_id: str):
+async def serve_scoreboard(request: Request, match_id: str):
     """Serve the scoreboard page."""
     if match_id not in matches:
         logging.warning("Match %s does not exist. Redirecting.", match_id)
@@ -234,7 +236,10 @@ async def serve_scoreboard(match_id: str):
         archive_url = f"/archive?state={encoded_state}"
         return RedirectResponse(archive_url)
 
-    return FileResponse("static/scoreboard.html")
+    return templates.TemplateResponse(
+        name = "scoreboard.html",
+        context = dict(matches[match_id], request=request)
+    )
 
 
 @app.get("/archive")
