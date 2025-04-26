@@ -145,6 +145,7 @@
         <button type="submit">Create Match</button>
     </form>
 
+    <div id="errorMessage" style="color: red"></div>
     <div id="links"></div>
     <div id="qrcode-container">
         <div id="qrcode"></div>
@@ -163,26 +164,67 @@
     <script>
         document.getElementById("matchForm").onsubmit = async function(event) {
             event.preventDefault();
-            let formData = new FormData(this);
-            let response = await fetch("/create_match", { method: "POST", body: formData });
-            let data = await response.json();
 
-            // Convert relative link to absolute URL
-            let viewerLink = new URL(data.viewer_link, window.location.origin).href;
+            const form = this;
+            const formData = new FormData(form);
+            const errorDiv = document.getElementById("errorMessage");
+            const submitButton = form.querySelector("button[type='submit']"); // find the submit button
+            errorDiv.innerText = ""; // Clear previous error
 
-            // Generate links
-            document.getElementById("links").innerHTML = `
-                <p><a href="${data.admin_link}" target="_blank">Scorekeeper Link</a></p>
-                <p><a href="${data.viewer_link}" target="_blank">Viewer Link</a></p>
-            `;
+            submitButton.disabled = true; // Disable submit button immediately
 
-            // Generate QR Code
-            document.getElementById("qrcode").innerHTML = ""; // Clear previous QR code
-            new QRCode(document.getElementById("qrcode"), {
-                text: viewerLink,
-                width: 250,
-                height: 250
-            });
+            try {
+                let response = await fetch("/create_match", { method: "POST", body: formData });
+
+                if (!response.ok) {
+                    let errorMessage = "An unexpected error occurred. Please try again later.";
+
+                    // Try to parse the error JSON body
+                    let errorData = await response.json().catch(() => ({}));
+
+                    if (errorData.detail) {
+                        errorMessage = errorData.detail;
+                    }
+
+                    // Handle Retry-After header if present
+                    const retryAfter = response.headers.get("Retry-After");
+                    if (retryAfter) {
+                        let seconds = parseInt(retryAfter, 10);
+                        if (!isNaN(seconds)) {
+                            const minutes = Math.ceil(seconds / 60);
+                            errorMessage += ` Please wait about ${minutes} minute${minutes !== 1 ? 's' : ''} before trying again.`;
+                        }
+                    }
+
+                    errorDiv.innerText = errorMessage;
+                    return;
+                }
+
+                let data = await response.json();
+
+                // Convert relative link to absolute URL
+                let viewerLink = new URL(data.viewer_link, window.location.origin).href;
+
+                // Generate links
+                document.getElementById("links").innerHTML = `
+                    <p><a href="${data.admin_link}" target="_blank">Scorekeeper Link</a></p>
+                    <p><a href="${data.viewer_link}" target="_blank">Viewer Link</a></p>
+                `;
+
+                // Generate QR Code
+                document.getElementById("qrcode").innerHTML = ""; // Clear previous QR code
+                new QRCode(document.getElementById("qrcode"), {
+                    text: viewerLink,
+                    width: 250,
+                    height: 250
+                });
+
+            } catch (error) {
+                console.error("Error submitting form:", error);
+                errorDiv.innerText = "Unable to create match. Please check your connection and try again.";
+            } finally {
+                submitButton.disabled = false; // Always re-enable button when done
+            }
         };
     </script>
 </body>

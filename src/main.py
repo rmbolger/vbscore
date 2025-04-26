@@ -1,28 +1,24 @@
 """Volleyball Scoreboard App"""
 
 import json
-import time
 import asyncio
 import logging
 import sys
-import os
-from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import (
     FastAPI, WebSocket, WebSocketDisconnect,
-    Request, HTTPException
+    Request
 )
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from match_manager import MatchManager
-
+from rate_limiter import rate_limit, rate_limiter_cleanup_loop
 
 # Define log format
 #LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
 LOG_FORMAT = "[%(asctime)s] [%(levelname)s] %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-MATCHES_FILE = Path(os.getenv("MATCHES_FILE", "/opt/vbscore-data/matches.json"))
 
 # Create a handler with the custom format
 formatter = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
@@ -44,20 +40,24 @@ for logger_name in ["uvicorn", "uvicorn.access", "websockets.protocol"]:
     logger.propagate = False
     logger.addHandler(handler)
 
-match_creation_tracker = {}  # Tracks how many matches each IP creates
-RATE_LIMIT = 20  # Max matches per IP per hour
 templates = Jinja2Templates(directory="templates")
-
 mgr = MatchManager()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Lifespan event handler to manage startup and shutdown tasks."""
     await mgr.load_matches()  # Load matches at startup
-    task = asyncio.create_task(mgr.cleanup_matches())  # Start cleanup task
+
+    match_cleanup_task = asyncio.create_task(mgr.cleanup_matches())
+    rate_limiter_cleanup_task = asyncio.create_task(rate_limiter_cleanup_loop())
+
     yield  # App runs here
+
     await mgr.save_matches()  # Save matches on shutdown
-    task.cancel()  # Cleanup on shutdown
+
+    match_cleanup_task.cancel()
+    rate_limiter_cleanup_task.cancel()
+
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -80,21 +80,9 @@ async def serve_favicon():
 
 
 @app.post("/create_match")
+@rate_limit(max_requests=20, window_seconds=3600)
 async def create_match(request: Request):
     """Creates a new match and returns admin & viewer links."""
-
-    # Rate limit enforcement
-    client_ip = request.client.host
-    current_time = time.time()
-    match_creation_tracker.setdefault(client_ip, [])
-    match_creation_tracker[client_ip] = [
-        t for t in match_creation_tracker[client_ip] if (current_time - t) < 3600
-    ]
-
-    if len(match_creation_tracker[client_ip]) >= RATE_LIMIT:
-        raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
-
-    match_creation_tracker[client_ip].append(current_time)
 
     form = await request.form()
     match_id, admin_token = await mgr.create_match(form)
@@ -103,6 +91,7 @@ async def create_match(request: Request):
     admin_link = f"{base_url}/scoreboard/{match_id}?token={admin_token}"
     viewer_link = f"{base_url}/scoreboard/{match_id}"
 
+    client_ip = request.client.host
     logging.info("%s Created match %s", client_ip, match_id)
 
     return {"admin_link": admin_link, "viewer_link": viewer_link}
