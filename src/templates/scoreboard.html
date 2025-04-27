@@ -77,7 +77,6 @@
             text-shadow: 1px 1px 2px black;
         }
 
-        /* Set history position */
         #setsHistory {
             position: absolute;
             top: 10px;
@@ -88,7 +87,6 @@
             flex-wrap: wrap;
         }
 
-        /* Set history position */
         #viewers {
             position: absolute;
             bottom: 10px;
@@ -97,6 +95,7 @@
             flex-direction: row;
             gap: 5px;
             flex-wrap: wrap;
+            color: {{ b_color_fg }}
         }
 
         /* Individual set score */
@@ -192,7 +191,6 @@
         <div id="actionsDialog" class="modal">
             <button id="newSetBtn">New Set</button>
             <button id="endMatchBtn">End Match</button>
-            <!-- <button id="resetBtn">Reset Scores</button> -->
             <button id="cancelBtn">Cancel</button>
         </div>
     </div>
@@ -222,30 +220,19 @@
                 const data = JSON.parse(event.data);
 
                 if (data.redirect) {
-                    window.location.href = data.redirect;  // Redirect to archive page
-                    return;
-                }
-                if (data.error === "Match expired") {
-                    alert("This match has expired. Redirecting to homepage.");
-                    window.location.href = "/";
+                    window.location.href = data.redirect;
                     return;
                 }
 
+                // update mutable elements
                 document.getElementById("scoreA").textContent = data.score.teamA;
                 document.getElementById("scoreB").textContent = data.score.teamB;
-                document.getElementById("teamA").style.backgroundColor = data.a_color_bg;
-                document.getElementById("teamB").style.backgroundColor = data.b_color_bg;
-                document.getElementById("teamA").style.color = data.a_color_fg;
-                document.getElementById("teamB").style.color = data.b_color_fg;
-                document.getElementById("teamAName").textContent = data.a_name;
-                document.getElementById("teamBName").textContent = data.b_name;
                 document.getElementById("currentSet").textContent = data.current_set;
                 if (isAdmin) {
                     document.getElementById("viewers").textContent = `${data.viewers} 👀`;
-                    document.getElementById("viewers").style.color = data.b_color_fg;
                 }
 
-                // Display previous set scores
+                // Render previous set scores
                 const setsContainer = document.getElementById("setsHistory");
                 setsContainer.innerHTML = "";
                 data.sets.forEach((set, index) => {
@@ -258,12 +245,6 @@
 
             ws.onclose = (event) => {
                 console.log(`WebSocket closed with code: ${event.code}`);
-
-                if (event.code === 1008) { // Match no longer exists
-                    console.log("Match expired, redirecting...");
-                    window.location.href = "/";
-                    return;
-                }
 
                 reconnectAttempts += 1;
                 console.log(`Attempting to reconnect (#${reconnectAttempts})...`);
@@ -389,10 +370,6 @@
                     isMouseDown = false;
                 });
 
-                // document.getElementById("resetBtn").addEventListener("click", () => {
-                //     sendUpdate("reset");
-                //     document.getElementById("actionsOverlay").style.display = "none";
-                // });
             });
 
         }

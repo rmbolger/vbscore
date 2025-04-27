@@ -23,7 +23,6 @@ class MatchManager:
 
     MATCH_EXPIRY_TIME = 3 * 60 * 60  # 3 hours in seconds
 
-
     def __init__(self):
         self._matches: Dict[str, dict] = {}
         self._sessions: Dict[str, dict] = {}
@@ -265,10 +264,6 @@ class MatchManager:
             if match["score"][update["team"]] > 0:  # don't go negative
                 async with self._get_lock(match_id):
                     match["score"][update["team"]] -= 1
-
-        elif update["action"] == "reset":
-            async with self._get_lock(match_id):
-                match["score"] = {"teamA": 0, "teamB": 0}
 
         elif update["action"] in ("new_set", "end_match"):
             async with self._get_lock(match_id):
