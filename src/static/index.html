@@ -90,6 +90,7 @@
 
         #links {
             margin-top: 20px;
+            display: none;
         }
 
         #links a {
@@ -109,8 +110,14 @@
         }
 
         #qrcode-container {
-            display: flex;
+            display: none;
             justify-content: center;
+            margin-top: 15px;
+        }
+
+        #errorMessage {
+            display: none;
+            color: red;
             margin-top: 15px;
         }
     </style>
@@ -145,7 +152,7 @@
         <button type="submit">Create Match</button>
     </form>
 
-    <div id="errorMessage" style="color: red"></div>
+    <div id="errorMessage"></div>
     <div id="links"></div>
     <div id="qrcode-container">
         <div id="qrcode"></div>
@@ -170,6 +177,7 @@
             const errorDiv = document.getElementById("errorMessage");
             const submitButton = form.querySelector("button[type='submit']"); // find the submit button
             errorDiv.innerText = ""; // Clear previous error
+            errorDiv.style.display = "none";
 
             submitButton.disabled = true; // Disable submit button immediately
 
@@ -181,7 +189,6 @@
 
                     // Try to parse the error JSON body
                     let errorData = await response.json().catch(() => ({}));
-
                     if (errorData.detail) {
                         errorMessage = errorData.detail;
                     }
@@ -197,19 +204,21 @@
                     }
 
                     errorDiv.innerText = errorMessage;
+                    errorDiv.style.display = "block";
+
                     return;
                 }
 
                 let data = await response.json();
 
-                // Convert relative link to absolute URL
-                let viewerLink = new URL(data.viewer_link, window.location.origin).href;
-
                 // Generate links
-                document.getElementById("links").innerHTML = `
+                let viewerLink = new URL(data.viewer_link, window.location.origin).href;
+                links = document.getElementById("links");
+                links.innerHTML = `
                     <p><a href="${data.admin_link}" target="_blank">Scorekeeper Link</a></p>
                     <p><a href="${data.viewer_link}" target="_blank">Viewer Link</a></p>
                 `;
+                links.style.display = "block";
 
                 // Generate QR Code
                 document.getElementById("qrcode").innerHTML = ""; // Clear previous QR code
@@ -218,6 +227,7 @@
                     width: 250,
                     height: 250
                 });
+                document.getElementById("qrcode-container").style.display = "flex";
 
             } catch (error) {
                 console.error("Error submitting form:", error);
