@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ a_name }} v {{ b_name }}{% if mLoc %} @ {{ mLoc }}{% endif %}</title>
+    <title>{{ a.name }} v {{ b.name }}{% if desc %} @ {{ desc }}{% endif %}</title>
     <link rel="manifest" href="/static/manifest.webmanifest">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" href="/static/icons/icon.0475C8270024A3B27E6B4D400577C7F5.svg" type="image/svg+xml">
@@ -44,12 +44,12 @@
         }
 
         #teamA {
-            background-color: {{ a_color_bg }};
-            color: {{ a_color_fg }};
+            background-color: {{ a.color_bg }};
+            color: {{ a.color_fg }};
         }
         #teamB {
-            background-color: {{ b_color_bg }};
-            color: {{ b_color_fg }};
+            background-color: {{ b.color_bg }};
+            color: {{ b.color_fg }};
         }
 
         /* Score styling */
@@ -95,7 +95,7 @@
             flex-direction: row;
             gap: 5px;
             flex-wrap: wrap;
-            color: {{ b_color_fg }}
+            color: {{ b.color_fg }}
         }
 
         /* Individual set score */
@@ -172,17 +172,17 @@
 <body>
     <div id="scoreboard">
         <div class="team" id="teamA">
-            <div class="score" id="scoreA">{{ score.teamA }}</div>
-            <div class="team-name" id="teamAName">{{ a_name }}</div>
+            <div class="score" id="scoreA">{{ score[0] }}</div>
+            <div class="team-name" id="teamAName">{{ a.name }}</div>
         </div>
         <div class="team" id="teamB">
-            <div class="score" id="scoreB">{{ score.teamB }}</div>
-            <div class="team-name" id="teamBName">{{ b_name }}</div>
+            <div class="score" id="scoreB">{{ score[1] }}</div>
+            <div class="team-name" id="teamBName">{{ b.name }}</div>
         </div>
-        <div id="currentSet">{{ current_set }}</div>
+        <div id="currentSet">{{ set_num }}</div>
         <div id="setsHistory">
             {% for set in sets %}
-            <div class="set-score">{{ set.teamA }}-{{ set.teamB }}</div>
+            <div class="set-score">{{ set[0] }}-{{ set[1] }}</div>
             {% endfor %}
         </div>
         <div id="viewers"></div>
@@ -225,9 +225,9 @@
                 }
 
                 // update mutable elements
-                document.getElementById("scoreA").textContent = data.score.teamA;
-                document.getElementById("scoreB").textContent = data.score.teamB;
-                document.getElementById("currentSet").textContent = data.current_set;
+                document.getElementById("scoreA").textContent = data.score[0];
+                document.getElementById("scoreB").textContent = data.score[1];
+                document.getElementById("currentSet").textContent = data.set_num;
                 if (isAdmin) {
                     document.getElementById("viewers").textContent = `${data.viewers} 👀`;
                 }
@@ -237,7 +237,7 @@
                 setsContainer.innerHTML = "";
                 data.sets.forEach((set, index) => {
                     const setElem = document.createElement("div");
-                    setElem.textContent = `${set.teamA}-${set.teamB}`;
+                    setElem.textContent = `${set[0]}-${set[1]}`;
                     setElem.className = "set-score";
                     setsContainer.appendChild(setElem);
                 });
@@ -305,7 +305,7 @@
                 let score = Number(document.getElementById(team).children[0].textContent);
                 if ((action == "increment" && score < 99) ||
                     (action == "decrement" && score > 0)) {
-                    sendUpdate(action, team)
+                    sendUpdate(action, (team === "teamA" ? 0 : 1))
                 }
             }
 

@@ -101,19 +101,24 @@ async def create_match(request: Request):
 async def serve_scoreboard(request: Request, match_id: str):
     """Serve the scoreboard page."""
     match = mgr.get_match(match_id)
+    match_static = mgr.get_match_static(match_id)
     if not match:
         logging.warning("Match %s does not exist. Redirecting.", match_id)
         return RedirectResponse("/")
 
-    if match["ended"]:
+    if match["done"]:
         logging.info("Redirecting to match archive page for match %s", match_id)
-        encoded_state = MatchManager.encode_match_state(match)
+        encoded_state = mgr.encode_match_state(match_id)
         archive_url = f"/archive?state={encoded_state}"
         return RedirectResponse(archive_url)
 
     return templates.TemplateResponse(
         name = "scoreboard.html",
-        context = dict(match, request=request)
+        context = {
+            **match_static,
+            **match,
+            "request": request,
+        }
     )
 
 
@@ -127,7 +132,7 @@ async def websocket_endpoint(match_id: str, websocket: WebSocket, token: str = N
     if not session_id:
         return
 
-    is_admin = token == mgr.get_match(match_id)["admin_token"]
+    is_admin = token == mgr.get_match_static(match_id)["admin_token"]
 
     # Send initial match state
     await mgr.send_match_state(websocket, match_id)

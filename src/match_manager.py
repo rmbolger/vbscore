@@ -25,6 +25,7 @@ class MatchManager:
 
     def __init__(self):
         self._matches: Dict[str, dict] = {}
+        self._match_static: Dict[str, dict] = {}
         self._sessions: Dict[str, dict] = {}
         self._locks: Dict[str, asyncio.Lock] = {}
         self._global_lock = asyncio.Lock()
@@ -36,7 +37,7 @@ class MatchManager:
         try:
             logging.info("Saving %s matches to disk.", len(self._matches))
             with self._matches_file.open("w", encoding="utf-8") as f:
-                json.dump(self._matches, f, ensure_ascii=False, indent=4)
+                json.dump([self._matches,self._match_static], f, ensure_ascii=False, indent=4)
         except Exception as e:  # pylint: disable=broad-except
             logging.warning("Error saving matches: %s", e)
 
@@ -47,7 +48,9 @@ class MatchManager:
             async with self._global_lock:
                 try:
                     with self._matches_file.open("r", encoding="utf-8") as f:
-                        self._matches.update(json.load(f))
+                        md,ms = json.load(f)
+                        self._matches.update(md)
+                        self._match_static.update(ms)
                     for match_id,_ in self._matches.items():
                         self._sessions[match_id] = []
                     logging.info("%s matches loaded from disk.", len(self._matches))
@@ -68,6 +71,7 @@ class MatchManager:
             async with self._global_lock:
                 for match_id in to_delete:
                     del self._matches[match_id]
+                    del self._match_static[match_id]
                     del self._sessions[match_id]
                     logging.info("Match %s expired and was removed.", match_id)
             await asyncio.sleep(600)  # Run cleanup every 10 minutes
@@ -107,8 +111,13 @@ class MatchManager:
 
 
     def get_match(self,match_id):
-        """Retrieve a match object by ID. Returns None if it doesn't exist."""
+        """Retrieve dynamic match data by ID. Returns None if it doesn't exist."""
         return self._matches.get(match_id)
+
+
+    def get_match_static(self,match_id):
+        """Retrieve static match data by ID. Returns None if it doesn't exist."""
+        return self._match_static.get(match_id)
 
 
     async def validate_match(self, match_id: str, websocket: WebSocket) -> bool:
@@ -120,33 +129,34 @@ class MatchManager:
         return True
 
 
-    @staticmethod
-    def encode_match_state(match):
+    def encode_match_state(self, match_id):
         """Encodes a match state into a structured JSON object for archiving."""
+        match_static = self.get_match_static(match_id)
         match_state = {
             "v": 1,  # schema version
             "d": int(datetime.now().timestamp()),  # epoch timestamp
-            "l": match["mLoc"],
+            "l": match_static["desc"],
             "a": {
-                "n": match["a_name"],
-                "b": match["a_color_bg"],
-                "f": match["a_color_fg"],
+                "n": match_static["a"]["name"],
+                "b": match_static["a"]["color_bg"],
+                "f": match_static["a"]["color_fg"],
                 "w": 0,  # Wins (to be calculated)
                 "s": []  # Scores (to be added)
             },
             "b": {
-                "n": match["b_name"],
-                "b": match["b_color_bg"],
-                "f": match["b_color_fg"],
+                "n": match_static["b"]["name"],
+                "b": match_static["b"]["color_bg"],
+                "f": match_static["b"]["color_fg"],
                 "w": 0,  # Wins (to be calculated)
                 "s": []  # Scores (to be added)
             }
         }
 
         # Process completed set scores
+        match = self.get_match(match_id)
         for set_score in match["sets"]:
-            match_state["a"]["s"].append(set_score["teamA"])
-            match_state["b"]["s"].append(set_score["teamB"])
+            match_state["a"]["s"].append(set_score[0])
+            match_state["b"]["s"].append(set_score[1])
 
         # Calculate wins per team
         for a, b in zip(match_state["a"]["s"], match_state["b"]["s"]):
@@ -171,28 +181,35 @@ class MatchManager:
         b_color_bg = form.get("b_color", "#0000FF") # blue default
         admin_token = secrets.token_urlsafe(6)
         match_data = {
+            "set_num": 1,
+            "score": [0,0],
             "sets": [],
-            "current_set": 1,
-            "score": {"teamA": 0, "teamB": 0},
-            "a_name": html.escape(form.get("a_name", "Team A")[:20]),
-            "b_name": html.escape(form.get("b_name", "Team B")[:20]),
-            "a_color_bg": a_color_bg,
-            "b_color_bg": b_color_bg,
-            "a_color_fg": self._get_contrast_color(a_color_bg),
-            "b_color_fg": self._get_contrast_color(b_color_bg),
-            "mLoc": html.escape(form.get("mLoc", "")[:30]),
-            "admin_token": admin_token,
             "last_updated": time.time(),
-            "ended": False,
+            "done": False,
             "viewers": 0,
+        }
+        match_static = {
+            "a": {
+                "name": html.escape(form.get("a_name", "Team A")[:20]),
+                "color_bg": a_color_bg,
+                "color_fg": self._get_contrast_color(a_color_bg),
+            },
+            "b": {
+                "name": html.escape(form.get("b_name", "Team B")[:20]),
+                "color_bg": b_color_bg,
+                "color_fg": self._get_contrast_color(b_color_bg),
+            },
+            "desc": html.escape(form.get("mLoc", "")[:30]),
+            "admin_token": admin_token,
         }
         async with self._global_lock:
             # generate an unused match ID
             match_id = None
             while not match_id or match_id in self._matches:
                 match_id = secrets.token_urlsafe(6)
-            # add the match, empty session list, and shared lock
+            # add the match dynamic and static data, empty session list, and shared lock
             self._matches[match_id] = match_data
+            self._match_static[match_id] = match_static
             self._sessions[match_id] = []
             self._locks[match_id] = asyncio.Lock()
 
@@ -201,11 +218,11 @@ class MatchManager:
 
     async def add_session(self, match_id: str, ws: WebSocket) -> str:
         """Add a new WebSocket session. Returns the session_id."""
-        match = self._matches.get(match_id)
+        match = self.get_match(match_id)
         if not match:
             raise MatchNotFoundError(f"Match {match_id} not found.")
 
-        if match["ended"]:
+        if match["done"]:
             raise MatchEndedError(f"Match {match_id} has already ended.")
 
         session_id = str(uuid.uuid4())[:8]
@@ -228,8 +245,7 @@ class MatchManager:
         except MatchNotFoundError:
             await self.send_redirect(websocket, "/")
         except MatchEndedError:
-            match = self.get_match(match_id)
-            archive_url = f"/archive?state={MatchManager.encode_match_state(match)}"
+            archive_url = f"/archive?state={self.encode_match_state(match_id)}"
             await self.send_redirect(websocket, archive_url)
         return None
 
@@ -255,42 +271,57 @@ class MatchManager:
         """Process admin actions and return True if the match ended."""
         match = self._matches[match_id]
 
-        if update["action"] == "increment":
-            if match["score"][update["team"]] < 99: # don't go 3-digit
-                async with self._get_lock(match_id):
-                    match["score"][update["team"]] += 1
+        # sanitize inputs
+        action = update.get('action')
+        if not action:
+            logging.warning("%s:%s Action missing from update.",
+                            match_id, session_id)
+            return
+        if action == 'increment' or action == 'decrement': # pylint: disable=consider-using-in
+            team = update.get('team')
+            if team != 0 and team != 1: # pylint: disable=consider-using-in
+                logging.warning("%s:%s Invalid team sent for increment/decrement: %s",
+                                match_id, session_id, team)
+                return
 
-        elif update["action"] == "decrement":
-            if match["score"][update["team"]] > 0:  # don't go negative
+        # process the action
+        if action == "increment":
+            if match["score"][team] < 99: # don't go 3-digit
                 async with self._get_lock(match_id):
-                    match["score"][update["team"]] -= 1
+                    match["score"][team] += 1
 
-        elif update["action"] in ("new_set", "end_match"):
+        elif action == "decrement":
+            if match["score"][team] > 0:  # don't go negative
+                async with self._get_lock(match_id):
+                    match["score"][team] -= 1
+
+        elif action == 'new_set' or action == 'end_match': # pylint: disable=consider-using-in
             async with self._get_lock(match_id):
                 match["sets"].append(match["score"].copy())
-                match["score"] = {"teamA": 0, "teamB": 0}
-                match["ended"] = update["action"] == "end_match" or match["current_set"] >= 5
+                match["score"] = [0,0]
+                match["done"] = action == "end_match" or match["set_num"] >= 5
 
-                if not match["ended"]:
-                    match["current_set"] += 1
+                if not match["done"]:
+                    match["set_num"] += 1
                 else:
-                    archive_url = f"/archive?state={MatchManager.encode_match_state(match)}"
+                    archive_url = f"/archive?state={self.encode_match_state(match_id)}"
                     await self.broadcast_redirect(match_id, archive_url)
                     return
 
         else:
-            logging.warning("%s:%s Unrecognized action sent: %s",
-                            match_id, session_id, update["action"])
+            logging.warning("%s:%s Unrecognized action sent in update: %s",
+                            match_id, session_id, action)
 
-        if not match["ended"]:
-            await self.broadcast_state(match_id)
+        if not match["done"]:
+            await self.broadcast_match_state(match_id)
 
 
-    async def broadcast_state(self, match_id):
+    async def broadcast_match_state(self, match_id):
         """Send the updated game state to all connected clients."""
-        match = self._matches[match_id]
-        for session in self._sessions[match_id]:
-            await session["websocket"].send_json(match)
+        match = self.get_match(match_id)
+        if match:
+            for session in self._sessions.get(match_id, []):
+                await session["websocket"].send_json(match)
 
 
     async def send_redirect(self, websocket: WebSocket, url: str):
