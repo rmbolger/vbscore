@@ -8,6 +8,7 @@
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" href="/static/icons/icon.0475C8270024A3B27E6B4D400577C7F5.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.0CEFA6716E9F5BA9D301FCB5F974E5A4.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -57,6 +58,11 @@
             border-left: none;
             border-bottom: none;
         }
+        .set-chart {
+            width: 100%;
+            max-width: 100%;
+            margin-bottom: 2em;
+        }
     </style>
 </head>
 <body>
@@ -76,6 +82,7 @@
             <!-- Match data will be populated dynamically -->
         </tbody>
     </table>
+    <div id="scoreCharts"></div>
 
     <script>
         function formatEpochDate(timestamp) {
@@ -164,6 +171,98 @@
                 }
 
                 tableBody.innerHTML = rows;
+
+                const chartContainer = document.getElementById("scoreCharts");
+                chartContainer.innerHTML = "";  // Clear any existing charts
+
+                if (matchData.v >= 2 && matchData.h) {
+                    matchData.h.forEach((setHistory, index) => {
+                        // Reconstruct the score progression for each team
+                        const aScores = [];
+                        const bScores = [];
+
+                        let a = 0;
+                        let b = 0;
+
+                        for (let i = 0; i < setHistory.length; i++) {
+                            if (setHistory[i] === 0) {
+                                a++;
+                            } else if (setHistory[i] === 1) {
+                                b++;
+                            }
+                            aScores.push(a);
+                            bScores.push(b);
+                        }
+
+                        const labels = Array.from({ length: setHistory.length }, (_, i) => i + 1);
+
+                        // Create a canvas element for the chart
+                        const canvas = document.createElement("canvas");
+                        canvas.id = `setChart${index}`;
+                        canvas.className = "set-chart";
+                        // canvas.style.maxWidth = "400px";
+                        // canvas.style.marginBottom = "2em";
+                        chartContainer.appendChild(canvas);
+
+                        // Create the chart
+                        new Chart(canvas.getContext("2d"), {
+                            type: "line",
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    {
+                                        label: matchData.a.n,
+                                        data: aScores,
+                                        borderColor: matchData.a.b,
+                                        backgroundColor: matchData.a.b + "44", // semi-transparent
+                                        tension: 0.2
+                                    },
+                                    {
+                                        label: matchData.b.n,
+                                        data: bScores,
+                                        borderColor: matchData.b.b,
+                                        backgroundColor: matchData.b.b + "44",
+                                        tension: 0.2
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                interaction: {
+                                    mode: "index",
+                                    intersect: false
+                                },
+                                plugins: {
+                                    title: {
+                                        display: true,
+                                        text: `Set ${index + 1} Score Progression`
+                                    },
+                                    legend: {
+                                        position: 'bottom'
+                                    }
+                                },
+                                scales: {
+                                    x: {
+                                        title: {
+                                            display: true,
+                                            text: "Rally Number"
+                                        }
+                                    },
+                                    y: {
+                                        title: {
+                                            display: true,
+                                            text: "Score"
+                                        },
+                                        beginAtZero: true,
+                                        ticks: {
+                                            precision: 0
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    });
+                }
             } catch (err) {
                 console.error("Failed to decode state:", err);
             }
