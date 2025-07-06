@@ -172,17 +172,19 @@
 <body>
     <div id="scoreboard">
         <div class="team" id="teamA">
-            <div class="score" id="scoreA">{{ score[0] }}</div>
+            <div class="score" id="scoreA">{{ history[-1] | select("equalto", 0) | list | length }}</div>
             <div class="team-name" id="teamAName">{{ a.name }}</div>
         </div>
         <div class="team" id="teamB">
-            <div class="score" id="scoreB">{{ score[1] }}</div>
+            <div class="score" id="scoreB">{{ history[-1] | select("equalto", 1) | list | length }}</div>
             <div class="team-name" id="teamBName">{{ b.name }}</div>
         </div>
-        <div id="currentSet">{{ set_num }}</div>
+        <div id="currentSet">{{ history | length }}</div>
         <div id="setsHistory">
-            {% for set in sets %}
-            <div class="set-score">{{ set[0] }}-{{ set[1] }}</div>
+            {% for set_history in history[:-1] %}
+                {% set a_points = set_history | select('equalto', 0) | list | length %}
+                {% set b_points = set_history | select('equalto', 1) | list | length %}
+                <div class="set-score">{{ a_points }}-{{ b_points }}</div>
             {% endfor %}
         </div>
         <div id="viewers"></div>
@@ -225,9 +227,12 @@
                 }
 
                 // update mutable elements
-                document.getElementById("scoreA").textContent = data.score[0];
-                document.getElementById("scoreB").textContent = data.score[1];
-                document.getElementById("currentSet").textContent = data.set_num;
+                const currentSet = data.history.at(-1);
+                const aPoints = currentSet.filter(p => p === 0).length;
+                const bPoints = currentSet.filter(p => p === 1).length;
+                document.getElementById("scoreA").textContent = aPoints;
+                document.getElementById("scoreB").textContent = bPoints;
+                document.getElementById("currentSet").textContent = data.history.length;
                 if (isAdmin) {
                     document.getElementById("viewers").textContent = `${data.viewers} 👀`;
                 }
@@ -235,9 +240,12 @@
                 // Render previous set scores
                 const setsContainer = document.getElementById("setsHistory");
                 setsContainer.innerHTML = "";
-                data.sets.forEach((set, index) => {
+                data.history.slice(0, -1).forEach((set) => {
+                    const aPoints = set.filter(p => p === 0).length;
+                    const bPoints = set.filter(p => p === 1).length;
+
                     const setElem = document.createElement("div");
-                    setElem.textContent = `${set[0]}-${set[1]}`;
+                    setElem.textContent = `${aPoints}-${bPoints}`;
                     setElem.className = "set-score";
                     setsContainer.appendChild(setElem);
                 });
@@ -301,24 +309,17 @@
             let isMouseDown = false;
             let preventClick = false;
 
-            function scoreChange(action, team) {
-                let score = Number(document.getElementById(team).children[0].textContent);
-                if ((action == "increment" && score < 99) ||
-                    (action == "decrement" && score > 0)) {
-                    sendUpdate(action, (team === "teamA" ? 0 : 1))
-                }
-            }
-
             document.querySelectorAll(".team").forEach(teamElem => {
 
-                let teamId = teamElem.id === "teamA" ? "teamA" : "teamB";
+                let teamId = teamElem.id === "teamA" ? 0 : 1;
+                let score = Number(document.getElementById(teamElem.id).children[0].textContent);
 
                 teamElem.addEventListener("click", (e) => {
                     if (preventClick) {
                         // Prevent click from firing after a swipe
                         e.stopImmediatePropagation();
-                    } else {
-                        scoreChange("increment", teamId);
+                    } else if (score < 99) {
+                        sendUpdate("point", teamId);
                     }
                 });
 
@@ -336,8 +337,8 @@
                     let touchEndY = e.changedTouches[0].clientY;
                     let deltaY = touchStartY - touchEndY;
 
-                    if (deltaY > 30) scoreChange("increment", teamId); // Swipe Up -> Increase Score
-                    if (deltaY < -30) scoreChange("decrement", teamId);; // Swipe Down -> Decrease Score
+                    if (deltaY > 30 && score < 99) sendUpdate("point", teamId); // Swipe Up -> Increase Score
+                    if (deltaY < -30) sendUpdate("undo"); // Swipe Down -> Undo last score
                 });
 
                 // Mouse events
@@ -361,8 +362,8 @@
                     let mouseEndY = e.clientY;
                     let deltaY = mouseStartY - mouseEndY;
 
-                    if (deltaY > 30) scoreChange("increment", teamId); // Swipe Up -> Increase Score
-                    if (deltaY < -30) scoreChange("decrement", teamId); // Swipe Down -> Decrease Score
+                    if (deltaY > 30 && score < 99) sendUpdate("point", teamId); // Swipe Up -> Increase Score
+                    if (deltaY < -30) sendUpdate("undo"); // Swipe Down -> Undo last score
                 });
 
                 // Ensure mouse gesture doesn't stay active if user leaves the element

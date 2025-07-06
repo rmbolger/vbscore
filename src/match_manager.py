@@ -131,39 +131,24 @@ class MatchManager:
 
     def encode_match_state(self, match_id):
         """Encodes a match state into a structured JSON object for archiving."""
+        match = self.get_match(match_id)
         match_static = self.get_match_static(match_id)
         match_state = {
-            "v": 1,  # schema version
+            "v": 2,  # schema version
             "d": int(datetime.now().timestamp()),  # epoch timestamp
             "l": match_static["desc"],
             "a": {
                 "n": match_static["a"]["name"],
                 "b": match_static["a"]["color_bg"],
                 "f": match_static["a"]["color_fg"],
-                "w": 0,  # Wins (to be calculated)
-                "s": []  # Scores (to be added)
             },
             "b": {
                 "n": match_static["b"]["name"],
                 "b": match_static["b"]["color_bg"],
                 "f": match_static["b"]["color_fg"],
-                "w": 0,  # Wins (to be calculated)
-                "s": []  # Scores (to be added)
-            }
+            },
+            "h": match["history"]
         }
-
-        # Process completed set scores
-        match = self.get_match(match_id)
-        for set_score in match["sets"]:
-            match_state["a"]["s"].append(set_score[0])
-            match_state["b"]["s"].append(set_score[1])
-
-        # Calculate wins per team
-        for a, b in zip(match_state["a"]["s"], match_state["b"]["s"]):
-            if a > b:
-                match_state["a"]["w"] += 1
-            elif b > a:
-                match_state["b"]["w"] += 1
 
         # Convert to JSON string
         json_str = json.dumps(match_state)
@@ -181,9 +166,7 @@ class MatchManager:
         b_color_bg = form.get("b_color", "#0000FF") # blue default
         admin_token = secrets.token_urlsafe(6)
         match_data = {
-            "set_num": 1,
-            "score": [0,0],
-            "sets": [],
+            "history": [[]],
             "last_updated": time.time(),
             "done": False,
             "viewers": 0,
@@ -277,33 +260,47 @@ class MatchManager:
             logging.warning("%s:%s Action missing from update.",
                             match_id, session_id)
             return
-        if action == 'increment' or action == 'decrement': # pylint: disable=consider-using-in
+
+        if action == 'point':
             team = update.get('team')
             if team != 0 and team != 1: # pylint: disable=consider-using-in
                 logging.warning("%s:%s Invalid team sent for increment/decrement: %s",
                                 match_id, session_id, team)
                 return
 
-        # process the action
-        if action == "increment":
-            if match["score"][team] < 99: # don't go 3-digit
-                async with self._get_lock(match_id):
-                    match["score"][team] += 1
+            async with self._get_lock(match_id):
+                current_set = match["history"][-1]
+                team_score = current_set.count(team)
 
-        elif action == "decrement":
-            if match["score"][team] > 0:  # don't go negative
-                async with self._get_lock(match_id):
-                    match["score"][team] -= 1
+                if team_score < 99:
+                    current_set.append(team)
+                    match["last_updated"] = time.time()
+                else:
+                    logging.info("%s:%s Team %d already has 99 points, not adding more", match_id, session_id, team)
+
+        elif action == "undo":
+            async with self._get_lock(match_id):
+                if match["history"][-1]:
+                    removed_team = match["history"][-1].pop()
+                    match["last_updated"] = time.time()
+                else:
+                    logging.info("%s:%s Undo ignored — no points to remove", match_id, session_id)
 
         elif action == 'new_set' or action == 'end_match': # pylint: disable=consider-using-in
             async with self._get_lock(match_id):
-                match["sets"].append(match["score"].copy())
-                match["score"] = [0,0]
-                match["done"] = action == "end_match" or match["set_num"] >= 5
-
+                match["last_updated"] = time.time()
+                match["done"] = action == "end_match" or len(match["history"]) >= 5
                 if not match["done"]:
-                    match["set_num"] += 1
+                    match["history"].append([])
+                    logging.info("%s:%s New set", match_id, session_id)
                 else:
+                    # delete the final set if it's empty (like they accidentally clicked
+                    # new set and then clicked end match)
+                    if not match["history"][-1]:
+                        match["history"].pop()
+
+                    # send everyone to the archive
+                    logging.info("%s:%s Match ended", match_id, session_id)
                     archive_url = f"/archive?state={self.encode_match_state(match_id)}"
                     await self.broadcast_redirect(match_id, archive_url)
                     return

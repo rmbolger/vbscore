@@ -94,38 +94,78 @@
             return JSON.parse(text);
         }
 
+        function countScores(set) {
+            let a = 0, b = 0;
+            for (const point of set) {
+                if (point === 0) a++;
+                else if (point === 1) b++;
+            }
+            return [a, b];
+        }
+
         (async () => {
             const urlParams = new URLSearchParams(window.location.search);
             const encodedState = urlParams.get("state");
-            if (encodedState) {
-                try {
-                    const matchData = await decodeState(encodedState);
-                    console.log("Decoded match data:", matchData);
-                    document.getElementById("matchMeta").textContent = `${formatEpochDate(matchData.d)}`;
-                    if (matchData.l) {
-                        document.getElementById("matchMeta").textContent += ` @ ${matchData.l}`;
-                    }
-                    document.getElementById("teamAName").textContent = matchData.a.n;
-                    document.getElementById("teamAName").style = `background-color: ${matchData.a.b}; color: ${matchData.a.f}`;
-                    document.getElementById("teamBName").textContent = matchData.b.n;
-                    document.getElementById("teamBName").style = `background-color: ${matchData.b.b}; color: ${matchData.b.f}`;
+            if (!encodedState) return;
 
-                    const tableBody = document.getElementById("matchData");
-                    let rows = `<tr class="wins-row"><td class="row-label">Wins</td><td class="winner">${matchData.a.w}</td><td>${matchData.b.w}</td></tr>`;
-                    if (matchData.a.w < matchData.b.w) {
-                        rows = `<tr class="wins-row"><td class="row-label">Wins</td><td>${matchData.a.w}</td><td class="winner">${matchData.b.w}</td></tr>`;
-                    }
-                    matchData.a.s.forEach((score, index) => {
-                        let row = `<tr><td class="row-label">Set ${index + 1}</td><td class="winner">${score}</td><td>${matchData.b.s[index]}</td></tr>`;
-                        if (score < matchData.b.s[index]) {
-                            row = `<tr><td class="row-label">Set ${index + 1}</td><td>${score}</td><td class="winner">${matchData.b.s[index]}</td></tr>`;
-                        }
-                        rows += row;
-                    });
-                    tableBody.innerHTML = rows;
-                } catch (err) {
-                    console.error("Failed to decode state:", err);
+            try {
+                const matchData = await decodeState(encodedState);
+                console.log("Decoded match data:", matchData);
+                document.getElementById("matchMeta").textContent = `${formatEpochDate(matchData.d)}`;
+                if (matchData.l) {
+                    document.getElementById("matchMeta").textContent += ` @ ${matchData.l}`;
                 }
+                document.getElementById("teamAName").textContent = matchData.a.n;
+                document.getElementById("teamAName").style = `background-color: ${matchData.a.b}; color: ${matchData.a.f}`;
+                document.getElementById("teamBName").textContent = matchData.b.n;
+                document.getElementById("teamBName").style = `background-color: ${matchData.b.b}; color: ${matchData.b.f}`;
+
+                const tableBody = document.getElementById("matchData");
+                let rows = "";
+
+                if (matchData.v === 1) {
+                    // Schema v1 — already has per-set scores and wins
+                    const aWins = matchData.a.w;
+                    const bWins = matchData.b.w;
+                    const winRow = `<tr class="wins-row"><td class="row-label">Wins</td>` +
+                        `<td${aWins > bWins ? ' class="winner"' : ''}>${aWins}</td>` +
+                        `<td${bWins > aWins ? ' class="winner"' : ''}>${bWins}</td></tr>`;
+                    rows += winRow;
+
+                    matchData.a.s.forEach((scoreA, index) => {
+                        const scoreB = matchData.b.s[index];
+                        rows += `<tr><td class="row-label">Set ${index + 1}</td>` +
+                            `<td${scoreA > scoreB ? ' class="winner"' : ''}>${scoreA}</td>` +
+                            `<td${scoreB > scoreA ? ' class="winner"' : ''}>${scoreB}</td></tr>`;
+                    });
+
+                } else if (matchData.v === 2) {
+                    // Schema v2 — compute scores and wins from history
+                    let aWins = 0;
+                    let bWins = 0;
+
+                    matchData.h.forEach((set, index) => {
+                        const [aScore, bScore] = countScores(set);
+                        if (aScore > bScore) aWins++;
+                        else if (bScore > aScore) bWins++;
+
+                        rows += `<tr><td class="row-label">Set ${index + 1}</td>` +
+                            `<td${aScore > bScore ? ' class="winner"' : ''}>${aScore}</td>` +
+                            `<td${bScore > aScore ? ' class="winner"' : ''}>${bScore}</td></tr>`;
+                    });
+
+                    const winRow = `<tr class="wins-row"><td class="row-label">Wins</td>` +
+                        `<td${aWins > bWins ? ' class="winner"' : ''}>${aWins}</td>` +
+                        `<td${bWins > aWins ? ' class="winner"' : ''}>${bWins}</td></tr>`;
+                    rows = winRow + rows;
+
+                } else {
+                    throw new Error(`Unsupported match version: ${matchData.v}`);
+                }
+
+                tableBody.innerHTML = rows;
+            } catch (err) {
+                console.error("Failed to decode state:", err);
             }
         })();
     </script>
