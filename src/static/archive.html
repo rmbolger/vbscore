@@ -28,7 +28,8 @@
         .scores-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 1em;
+            margin-bottom: 2em;
         }
         .scores-table th, .scores-table td {
             border: 1px solid #000;
@@ -175,6 +176,15 @@
                 const chartContainer = document.getElementById("scoreCharts");
                 chartContainer.innerHTML = "";  // Clear any existing charts
 
+                // Define a custom tooltip positioner that always returns top-left of chart area
+                Chart.Tooltip.positioners.fixedTopLeft = function(elements, eventPosition) {
+                    const chartArea = this.chart.chartArea;
+                    return {
+                        x: chartArea.left + 10,
+                        y: chartArea.top + 30
+                    };
+                };
+
                 if (matchData.v >= 2 && matchData.h) {
                     matchData.h.forEach((setHistory, index) => {
                         // Reconstruct the score progression for each team
@@ -200,8 +210,6 @@
                         const canvas = document.createElement("canvas");
                         canvas.id = `setChart${index}`;
                         canvas.className = "set-chart";
-                        // canvas.style.maxWidth = "400px";
-                        // canvas.style.marginBottom = "2em";
                         chartContainer.appendChild(canvas);
 
                         // Create the chart
@@ -238,14 +246,29 @@
                                         text: `Set ${index + 1} Score Progression`
                                     },
                                     legend: {
-                                        position: 'bottom'
+                                        position: 'top'
+                                    },
+                                    tooltip: {
+                                        position: "fixedTopLeft",
+                                        callbacks: {
+                                            // Show both teams' scores at current point
+                                            label: function(ctx) {
+                                                const teamName = ctx.dataset.label;
+                                                const score = ctx.parsed.y;
+                                                const pointIndex = ctx.dataIndex;
+                                                return `${score} - ${teamName}`;
+                                            },
+                                            title: function(ctx) {
+                                                return `Point ${ctx[0].label}`;
+                                            }
+                                        }
                                     }
                                 },
                                 scales: {
                                     x: {
                                         title: {
                                             display: true,
-                                            text: "Rally Number"
+                                            text: "Point Number"
                                         }
                                     },
                                     y: {
