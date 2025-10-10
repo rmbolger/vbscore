@@ -151,7 +151,7 @@ class MatchManager:
         }
 
         # Convert to JSON string
-        json_str = json.dumps(match_state)
+        json_str = json.dumps(match_state, separators=(",", ":"))
         logging.debug(json_str)
 
         # Compress and Encode as Base64Url (without padding)
