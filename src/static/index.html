@@ -169,8 +169,42 @@
     page that can be bookmarked for historical purposes.</p>
 
     <script>
+        // Local storage functions
+        function saveFormData() {
+            const formData = {
+                a_name: document.getElementById('a_name').value,
+                a_color: document.querySelector('input[name="a_color"]').value,
+                b_name: document.getElementById('b_name').value,
+                b_color: document.querySelector('input[name="b_color"]').value,
+                mLoc: document.getElementById('mLoc').value
+            };
+            localStorage.setItem('vbscore_form_data', JSON.stringify(formData));
+        }
+
+        function loadFormData() {
+            const savedData = localStorage.getItem('vbscore_form_data');
+            if (savedData) {
+                try {
+                    const formData = JSON.parse(savedData);
+                    if (formData.a_name) document.getElementById('a_name').value = formData.a_name;
+                    if (formData.a_color) document.querySelector('input[name="a_color"]').value = formData.a_color;
+                    if (formData.b_name) document.getElementById('b_name').value = formData.b_name;
+                    if (formData.b_color) document.querySelector('input[name="b_color"]').value = formData.b_color;
+                    if (formData.mLoc) document.getElementById('mLoc').value = formData.mLoc;
+                } catch (error) {
+                    console.warn('Failed to load saved form data:', error);
+                }
+            }
+        }
+
+        // Load saved data when page loads
+        document.addEventListener('DOMContentLoaded', loadFormData);
+
         document.getElementById("matchForm").onsubmit = async function(event) {
             event.preventDefault();
+
+            // Save form data to localStorage
+            saveFormData();
 
             const form = this;
             const formData = new FormData(form);
