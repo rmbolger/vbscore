@@ -276,12 +276,13 @@ class MatchManager:
                     current_set.append(team)
                     match["last_updated"] = time.time()
                 else:
-                    logging.info("%s:%s Team %d already has 99 points, not adding more", match_id, session_id, team)
+                    logging.info("%s:%s Team %d already has 99 points, not adding more",
+                                 match_id, session_id, team)
 
         elif action == "undo":
             async with self._get_lock(match_id):
                 if match["history"][-1]:
-                    removed_team = match["history"][-1].pop()
+                    match["history"][-1].pop()
                     match["last_updated"] = time.time()
                 else:
                     logging.info("%s:%s Undo ignored — no points to remove", match_id, session_id)
