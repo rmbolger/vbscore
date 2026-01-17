@@ -173,16 +173,16 @@ class MatchManager:
         }
         match_static = {
             "a": {
-                "name": html.escape(form.get("a_name", "Team A")[:20]),
+                "name": html.escape(form.get("a_name", "Team A")[:25]),
                 "color_bg": a_color_bg,
                 "color_fg": self._get_contrast_color(a_color_bg),
             },
             "b": {
-                "name": html.escape(form.get("b_name", "Team B")[:20]),
+                "name": html.escape(form.get("b_name", "Team B")[:25]),
                 "color_bg": b_color_bg,
                 "color_fg": self._get_contrast_color(b_color_bg),
             },
-            "desc": html.escape(form.get("mLoc", "")[:30]),
+            "desc": html.escape(form.get("mLoc", "")[:35]),
             "admin_token": admin_token,
         }
         async with self._global_lock:
