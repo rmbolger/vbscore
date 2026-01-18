@@ -27,7 +27,7 @@ class MatchManager:
     def __init__(self):
         self._matches: Dict[str, dict] = {}
         self._match_static: Dict[str, dict] = {}
-        self._sessions: Dict[str, dict] = {}
+        self._sessions: Dict[str, list] = {}
         self._locks: Dict[str, asyncio.Lock] = {}
         self._global_lock = asyncio.Lock()
         data_folder = Path(os.getenv("VBSCORE_DATA_FOLDER", "/opt/vbscore-data"))
@@ -37,7 +37,7 @@ class MatchManager:
         self._matches_file = data_folder / "matches.json"
 
 
-    async def save_matches(self):
+    async def save_matches(self) -> None:
         """Save matches to disk."""
         try:
             logging.info("Saving %s matches to disk.", len(self._matches))
@@ -47,7 +47,7 @@ class MatchManager:
             logging.warning("Error saving matches: %s", e)
 
 
-    async def load_matches(self):
+    async def load_matches(self) -> None:
         """Load matches from disk."""
         if self._matches_file.exists():
             async with self._global_lock:
@@ -65,7 +65,7 @@ class MatchManager:
             logging.info("No existing matches file found at %s.", self._matches_file)
 
 
-    async def cleanup_matches(self):
+    async def cleanup_matches(self) -> None:
         """Removes matches that haven't been updated in the last 3 hours."""
         while True:
             current_time = time.time()
@@ -91,7 +91,7 @@ class MatchManager:
         return self._locks[match_id]
 
 
-    def _write_match_history(self, operation: str, match_id: str):
+    def _write_match_history(self, operation: str, match_id: str) -> None:
         """Write a match history entry to the daily CSV file."""
         try:
             match_static = self.get_match_static(match_id)
@@ -123,7 +123,7 @@ class MatchManager:
             logging.warning("Error writing match history for %s: %s", match_id, e)
 
 
-    def _relative_luminance(self, r, g, b):
+    def _relative_luminance(self, r, g, b) -> float:
         """Compute relative luminance as per WCAG 2.1."""
         def adjust(c):
             c = c / 255.0
@@ -150,12 +150,12 @@ class MatchManager:
         return "#FFFFFF" if contrast_white > contrast_black else "#000000"
 
 
-    def get_match(self,match_id):
+    def get_match(self, match_id: str) -> dict | None:
         """Retrieve dynamic match data by ID. Returns None if it doesn't exist."""
         return self._matches.get(match_id)
 
 
-    def get_match_static(self,match_id):
+    def get_match_static(self, match_id: str) -> dict | None:
         """Retrieve static match data by ID. Returns None if it doesn't exist."""
         return self._match_static.get(match_id)
 
@@ -169,10 +169,12 @@ class MatchManager:
         return True
 
 
-    def encode_match_state(self, match_id):
+    def encode_match_state(self, match_id: str) -> str:
         """Encodes a match state into a structured JSON object for archiving."""
         match = self.get_match(match_id)
         match_static = self.get_match_static(match_id)
+        if not match or not match_static:
+            raise MatchNotFoundError(f"Match {match_id} not found or incomplete.")
         match_state = {
             "v": 2,  # schema version
             "d": int(datetime.now().timestamp()),  # epoch timestamp
@@ -202,8 +204,8 @@ class MatchManager:
 
     async def create_match(self, form: FormData) -> tuple[str, str]:
         """Create a new match based on form data"""
-        a_color_bg = form.get("a_color", "#FF0000") # red default
-        b_color_bg = form.get("b_color", "#0000FF") # blue default
+        a_color_bg = str(form.get("a_color", "#FF0000")) # red default
+        b_color_bg = str(form.get("b_color", "#0000FF")) # blue default
         # Use user-selected foreground colors, or calculate contrast color as fallback
         a_color_fg = form.get("a_color_fg") or self._get_contrast_color(a_color_bg)
         b_color_fg = form.get("b_color_fg") or self._get_contrast_color(b_color_bg)
@@ -216,16 +218,16 @@ class MatchManager:
         }
         match_static = {
             "a": {
-                "name": html.escape(form.get("a_name", "Team A")[:25]),
+                "name": html.escape(str(form.get("a_name", "Team A"))[:25]),
                 "color_bg": a_color_bg,
                 "color_fg": a_color_fg,
             },
             "b": {
-                "name": html.escape(form.get("b_name", "Team B")[:25]),
+                "name": html.escape(str(form.get("b_name", "Team B"))[:25]),
                 "color_bg": b_color_bg,
                 "color_fg": b_color_fg,
             },
-            "desc": html.escape(form.get("mLoc", "")[:35]),
+            "desc": html.escape(str(form.get("mLoc", ""))[:35]),
             "admin_token": admin_token,
         }
         async with self._global_lock:
@@ -277,7 +279,7 @@ class MatchManager:
         return None
 
 
-    async def remove_session(self, match_id: str, session_id: str, ws: WebSocket):
+    async def remove_session(self, match_id: str, session_id: str, ws: WebSocket) -> None:
         """Remove a WebSocket session from a match."""
         async with self._get_lock(match_id):
             if match_id in self._sessions:
@@ -294,7 +296,7 @@ class MatchManager:
             pass  # Ignore if already closed
 
 
-    async def process_admin_action(self, match_id, session_id, update):
+    async def process_admin_action(self, match_id: str, session_id: str, update: dict) -> None:
         """Process admin actions and return True if the match ended."""
         match = self._matches[match_id]
 
@@ -361,7 +363,7 @@ class MatchManager:
             await self.broadcast_match_state(match_id)
 
 
-    async def broadcast_match_state(self, match_id):
+    async def broadcast_match_state(self, match_id: str) -> None:
         """Send the updated game state to all connected clients."""
         match = self.get_match(match_id)
         if match:
@@ -369,7 +371,7 @@ class MatchManager:
                 await session["websocket"].send_json(match)
 
 
-    async def send_redirect(self, websocket: WebSocket, url: str):
+    async def send_redirect(self, websocket: WebSocket, url: str) -> None:
         """Send a redirect command and close the WebSocket."""
         try:
             await websocket.send_json({"redirect": url})
@@ -378,13 +380,13 @@ class MatchManager:
         finally:
             await websocket.close(code=status.WS_1000_NORMAL_CLOSURE)
 
-    async def broadcast_redirect(self, match_id: str, url: str):
+    async def broadcast_redirect(self, match_id: str, url: str) -> None:
         """Send a redirect to all clients for a match."""
         logging.info("%s Sending redirect to all clients.", match_id)
         for session in self._sessions.get(match_id, []):
             await self.send_redirect(session["websocket"], url)
 
-    async def send_match_state(self, websocket: WebSocket, match_id: str):
+    async def send_match_state(self, websocket: WebSocket, match_id: str) -> None:
         """Send the current match state to a connected client."""
         match = self.get_match(match_id)
         if match:
