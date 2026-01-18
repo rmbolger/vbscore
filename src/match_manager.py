@@ -164,6 +164,9 @@ class MatchManager:
         """Create a new match based on form data"""
         a_color_bg = form.get("a_color", "#FF0000") # red default
         b_color_bg = form.get("b_color", "#0000FF") # blue default
+        # Use user-selected foreground colors, or calculate contrast color as fallback
+        a_color_fg = form.get("a_color_fg") or self._get_contrast_color(a_color_bg)
+        b_color_fg = form.get("b_color_fg") or self._get_contrast_color(b_color_bg)
         admin_token = secrets.token_urlsafe(6)
         match_data = {
             "history": [[]],
@@ -175,12 +178,12 @@ class MatchManager:
             "a": {
                 "name": html.escape(form.get("a_name", "Team A")[:25]),
                 "color_bg": a_color_bg,
-                "color_fg": self._get_contrast_color(a_color_bg),
+                "color_fg": a_color_fg,
             },
             "b": {
                 "name": html.escape(form.get("b_name", "Team B")[:25]),
                 "color_bg": b_color_bg,
-                "color_fg": self._get_contrast_color(b_color_bg),
+                "color_fg": b_color_fg,
             },
             "desc": html.escape(form.get("mLoc", "")[:35]),
             "admin_token": admin_token,

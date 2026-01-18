@@ -10,21 +10,67 @@
     <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.0CEFA6716E9F5BA9D301FCB5F974E5A4.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             text-align: center;
-            font-family: Arial, sans-serif;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            padding: 0;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
             max-width: 600px;
-            margin: auto;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px 30px;
+            margin-bottom: 20px;
         }
 
         h1 {
-            font-size: 2em;
+            font-size: 2.5em;
+            margin: 0 0 10px 0;
+            font-weight: 700;
+            position: relative;
         }
 
-        p {
-            font-size: 1.2em;
-            line-height: 1.4;
+        h1 .emoji {
+            position: absolute;
+            font-size: 4em;
+            opacity: 0.15;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        h1 .title-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+            z-index: 1;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 1.1em;
+            margin: 0 0 30px 0;
         }
 
         form {
@@ -37,145 +83,243 @@
         .form-group {
             display: flex;
             flex-direction: column;
-            width: 80%;
-            max-width: 300px;
-            margin-bottom: 15px;
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 20px;
             text-align: left;
         }
 
-        .form-group label {
-            font-size: 1.2em;
-            margin-bottom: 5px;
-        }
-
-        .team-input {
+        .form-group-header {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 10px;
-            width: 100%;
+            margin-bottom: 8px;
         }
 
-        .team-input input[type="text"] {
+        .form-group label {
+            font-size: 1.1em;
+            color: #374151;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .color-pickers {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .form-group input[type="text"] {
             font-size: 1.2em;
-            padding: 10px;
-            flex-grow: 1;
-            min-width: 0;
+            padding: 12px 16px;
+            width: 100%;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-family: inherit;
         }
 
-        .team-input input[type="color"] {
-            width: 50px;
-            height: 50px;
-            border: none;
+        .form-group input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .color-pickers input[type="color"] {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #e5e7eb;
+            border-radius: 4px;
             background: none;
             cursor: pointer;
             flex-shrink: 0;
         }
 
         button {
-            font-size: 1.5em;
-            padding: 15px 20px;
+            font-size: 1.3em;
+            padding: 16px 32px;
             margin-top: 10px;
             cursor: pointer;
             border: none;
-            background-color: #28a745;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 300px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            font-family: inherit;
         }
 
-        button:hover {
-            background-color: #218838;
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         #links {
-            margin-top: 20px;
+            margin-top: 30px;
             display: none;
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 12px;
         }
 
         #links a {
-            display: block;
-            font-size: 1.2em;
-            margin-top: 10px;
+            display: inline-block;
+            font-size: 1.1em;
+            margin: 8px 12px;
+            padding: 12px 24px;
             text-decoration: none;
-            color: #007bff;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            transition: all 0.3s;
+            font-weight: 600;
         }
 
         #links a:hover {
-            text-decoration: underline;
-        }
-
-        #qrcode {
-            margin-top: 15px;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
         #qrcode-container {
             display: none;
             justify-content: center;
-            margin-top: 15px;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 12px;
+        }
+
+        #qrcode {
+            padding: 16px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         #errorMessage {
             display: none;
-            color: red;
-            margin-top: 15px;
+            color: #dc2626;
+            background: #fef2f2;
+            border: 2px solid #fecaca;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+            font-weight: 500;
+        }
+
+        .info-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .info-section p {
+            font-size: 1em;
+            line-height: 1.6;
+            color: #4b5563;
+            margin: 0 0 16px 0;
+        }
+
+        .info-section p:last-child {
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 480px) {
+            .card {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            button {
+                font-size: 1.2em;
+            }
+
+            #links a {
+                display: block;
+                margin: 10px 0;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Volleyball Scoreboard</h1>
+    <div class="container">
+        <div class="card">
+            <h1><span class="emoji">🏐</span><span class="title-text">Volleyball Scoreboard</span></h1>
+            <p class="subtitle">Real-time scoring for your matches</p>
 
-    <form id="matchForm">
-        <div class="form-group">
-            <label for="a_name">Team A (Name/Color)</label>
-            <div class="team-input">
-                <input type="text" id="a_name" name="a_name" value="Home" maxlength="25">
-                <input type="color" name="a_color" value="#ff0000">
+            <form id="matchForm">
+                <div class="form-group">
+                    <div class="form-group-header">
+                        <label for="a_name">Team A</label>
+                        <div class="color-pickers">
+                            <input type="color" id="a_color_bg" name="a_color" value="#ff0000">
+                            <input type="color" id="a_color_fg" name="a_color_fg" value="#ffffff">
+                        </div>
+                    </div>
+                    <input type="text" id="a_name" name="a_name" value="Home" maxlength="25" style="background-color: #ff0000; color: #ffffff;">
+                </div>
+
+                <div class="form-group">
+                    <div class="form-group-header">
+                        <label for="b_name">Team B</label>
+                        <div class="color-pickers">
+                            <input type="color" id="b_color_bg" name="b_color" value="#0000ff">
+                            <input type="color" id="b_color_fg" name="b_color_fg" value="#ffffff">
+                        </div>
+                    </div>
+                    <input type="text" id="b_name" name="b_name" value="Visitor" maxlength="25" style="background-color: #0000ff; color: #ffffff;">
+                </div>
+
+                <div class="form-group">
+                    <label for="mLoc">Match Location/Description</label>
+                    <input type="text" id="mLoc" name="mLoc" value="" maxlength="35" placeholder="Optional" style="background-color: #ffffff; color: #374151; font-weight: 400;">
+                </div>
+
+                <button type="submit">Create Match</button>
+            </form>
+
+            <div id="errorMessage"></div>
+            <div id="links"></div>
+            <div id="qrcode-container">
+                <div id="qrcode"></div>
             </div>
         </div>
 
-        <div class="form-group">
-            <label for="b_name">Team B (Name/Color)</label>
-            <div class="team-input">
-                <input type="text" id="b_name" name="b_name" value="Visitor" maxlength="25">
-                <input type="color" name="b_color" value="#0000ff">
-            </div>
+        <div class="info-section">
+            <p><strong>How it works:</strong> Enter your team names and colors above, then click Create Match. You'll get two links — one for updating scores (Scorekeeper) and one for spectators (Viewer). Everyone sees score changes in real time!</p>
+
+            <p><strong>For Scorekeepers:</strong> Tap or swipe up on a team to add a point. Swipe down to undo. Tap the set number in the center to start a new set or end the match.</p>
+
+            <p><strong>Share with viewers:</strong> Send friends the Viewer link or show them the QR code. When the match ends, everyone is redirected to an archive page with final scores and graphs. Bookmark the archive page to keep a permanent record of your match!</p>
         </div>
-
-        <div class="form-group">
-            <label for="mLoc">Match Location/Description</label>
-            <div class="team-input">
-                <input type="text" id="mLoc" name="mLoc" value="" maxlength="35">
-            </div>
-        </div>
-
-        <button type="submit">Create Match</button>
-    </form>
-
-    <div id="errorMessage"></div>
-    <div id="links"></div>
-    <div id="qrcode-container">
-        <div id="qrcode"></div>
     </div>
-
-    <p>Create a volleyball scoreboard that you can update while others view in real time from
-    their own device. Enter team names, select colors, add optional location, and Create Match.
-    A Scorekeeper link is generated for you to update the score. Send your friends the Viewer
-    link or have them scan the QR code from your device.</p>
-
-    <p>On the Scorekeeper page, tap or swipe up to increment the score for that team. Swipe down
-    to undo the last score. Tap the set number in the middle to open options for starting a new
-    set or ending the match. When the match is over, all viewers are redirected to a Match Results
-    page that can be bookmarked for historical purposes.</p>
 
     <script>
         // Local storage functions
         function saveFormData() {
             const formData = {
                 a_name: document.getElementById('a_name').value,
-                a_color: document.querySelector('input[name="a_color"]').value,
+                a_color_bg: document.getElementById('a_color_bg').value,
+                a_color_fg: document.getElementById('a_color_fg').value,
                 b_name: document.getElementById('b_name').value,
-                b_color: document.querySelector('input[name="b_color"]').value,
+                b_color_bg: document.getElementById('b_color_bg').value,
+                b_color_fg: document.getElementById('b_color_fg').value,
                 mLoc: document.getElementById('mLoc').value
             };
             localStorage.setItem('vbscore_form_data', JSON.stringify(formData));
@@ -187,10 +331,27 @@
                 try {
                     const formData = JSON.parse(savedData);
                     if (formData.a_name) document.getElementById('a_name').value = formData.a_name;
-                    if (formData.a_color) document.querySelector('input[name="a_color"]').value = formData.a_color;
+                    // Backward compatibility: use a_color_bg if available, otherwise fall back to a_color
+                    if (formData.a_color_bg) document.getElementById('a_color_bg').value = formData.a_color_bg;
+                    else if (formData.a_color) document.getElementById('a_color_bg').value = formData.a_color;
+                    if (formData.a_color_fg) document.getElementById('a_color_fg').value = formData.a_color_fg;
+
                     if (formData.b_name) document.getElementById('b_name').value = formData.b_name;
-                    if (formData.b_color) document.querySelector('input[name="b_color"]').value = formData.b_color;
+                    // Backward compatibility: use b_color_bg if available, otherwise fall back to b_color
+                    if (formData.b_color_bg) document.getElementById('b_color_bg').value = formData.b_color_bg;
+                    else if (formData.b_color) document.getElementById('b_color_bg').value = formData.b_color;
+                    if (formData.b_color_fg) document.getElementById('b_color_fg').value = formData.b_color_fg;
+
                     if (formData.mLoc) document.getElementById('mLoc').value = formData.mLoc;
+
+                    // Update preview styles after loading
+                    const aNameInput = document.getElementById('a_name');
+                    aNameInput.style.backgroundColor = document.getElementById('a_color_bg').value;
+                    aNameInput.style.color = document.getElementById('a_color_fg').value;
+
+                    const bNameInput = document.getElementById('b_name');
+                    bNameInput.style.backgroundColor = document.getElementById('b_color_bg').value;
+                    bNameInput.style.color = document.getElementById('b_color_fg').value;
                 } catch (error) {
                     console.warn('Failed to load saved form data:', error);
                 }
@@ -199,6 +360,26 @@
 
         // Load saved data when page loads
         document.addEventListener('DOMContentLoaded', loadFormData);
+
+        // Live preview updates
+        function updateTeamPreview(team) {
+            const nameInput = document.getElementById(`${team}_name`);
+            const bgColorInput = document.getElementById(`${team}_color_bg`);
+            const fgColorInput = document.getElementById(`${team}_color_fg`);
+
+            function update() {
+                nameInput.style.backgroundColor = bgColorInput.value;
+                nameInput.style.color = fgColorInput.value;
+            }
+
+            bgColorInput.addEventListener('input', update);
+            fgColorInput.addEventListener('input', update);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateTeamPreview('a');
+            updateTeamPreview('b');
+        });
 
         document.getElementById("matchForm").onsubmit = async function(event) {
             event.preventDefault();
