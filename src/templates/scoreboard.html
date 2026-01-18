@@ -79,10 +79,7 @@
 
         #setsHistory {
             position: absolute;
-            top: 10px;
-            left: 10px;
             display: flex;
-            flex-direction: row;
             gap: 5px;
             flex-wrap: wrap;
         }
@@ -108,6 +105,10 @@
             border: 1px solid #ccc;
             box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
             text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
         }
 
         /* Set actions modal dialog */
@@ -147,6 +148,12 @@
                 left: 50%;
                 transform: translateX(-50%);
             }
+            #setsHistory {
+                flex-direction: column;
+                top: calc(10px + 4vw + 20px + 10px); /* Below currentSet */
+                left: 50%;
+                transform: translateX(-50%);
+            }
         }
 
         /* Portrait mode */
@@ -159,6 +166,25 @@
                 left: 10px;
                 top: 50%;
                 transform: translateY(-50%);
+            }
+            #setsHistory {
+                flex-direction: row;
+                left: calc(10px + 4vh + 20px + 20px); /* To the right of currentSet with extra padding */
+                top: 50%;
+                transform: translateY(-50%);
+            }
+            /* In portrait, stack scores vertically but keep numbers horizontal */
+            .set-score {
+                flex-direction: column;
+                gap: 2px;
+            }
+            .set-score .set-a,
+            .set-score .set-b {
+                font-variant-numeric: tabular-nums;
+                line-height: 1.1;
+            }
+            .set-score .set-dash {
+                line-height: 1;
             }
             .score {
                 font-size: 25vh;
@@ -184,7 +210,11 @@
             {% for set_history in history[:-1] %}
                 {% set a_points = set_history | select('equalto', 0) | list | length %}
                 {% set b_points = set_history | select('equalto', 1) | list | length %}
-                <div class="set-score">{{ a_points }}-{{ b_points }}</div>
+                <div class="set-score">
+                    <span class="set-a">{{ a_points }}</span>
+                    <span class="set-dash">-</span>
+                    <span class="set-b">{{ b_points }}</span>
+                </div>
             {% endfor %}
         </div>
         <div id="viewers"></div>
@@ -245,8 +275,21 @@
                     const bPoints = set.filter(p => p === 1).length;
 
                     const setElem = document.createElement("div");
-                    setElem.textContent = `${aPoints}-${bPoints}`;
                     setElem.className = "set-score";
+
+                    const aSpan = document.createElement("span");
+                    aSpan.className = "set-a";
+                    aSpan.textContent = aPoints;
+
+                    const dashSpan = document.createElement("span");
+                    dashSpan.className = "set-dash";
+                    dashSpan.textContent = "-";
+
+                    const bSpan = document.createElement("span");
+                    bSpan.className = "set-b";
+                    bSpan.textContent = bPoints;
+
+                    setElem.append(aSpan, dashSpan, bSpan);
                     setsContainer.appendChild(setElem);
                 });
             };
