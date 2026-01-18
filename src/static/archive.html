@@ -111,6 +111,29 @@
             return [a, b];
         }
 
+        // Ensure color is visible on white background by darkening if too light
+        function ensureVisibleColor(hexColor) {
+            // Parse hex color
+            const hex = hexColor.replace('#', '');
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+
+            // Calculate relative luminance (perceived brightness)
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+            // If color is too light (luminance > 0.7), darken it
+            if (luminance > 0.7) {
+                const darkenFactor = 0.5; // Darken by 50%
+                const newR = Math.round(r * darkenFactor);
+                const newG = Math.round(g * darkenFactor);
+                const newB = Math.round(b * darkenFactor);
+                return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+            }
+
+            return hexColor;
+        }
+
         (async () => {
             const urlParams = new URLSearchParams(window.location.search);
             const encodedState = urlParams.get("state");
@@ -221,15 +244,17 @@
                                     {
                                         label: matchData.a.n,
                                         data: aScores,
-                                        borderColor: matchData.a.b,
+                                        borderColor: ensureVisibleColor(matchData.a.b),
                                         backgroundColor: matchData.a.b + "44", // semi-transparent
+                                        borderWidth: 3,
                                         pointRadius: 0
                                     },
                                     {
                                         label: matchData.b.n,
                                         data: bScores,
-                                        borderColor: matchData.b.b,
+                                        borderColor: ensureVisibleColor(matchData.b.b),
                                         backgroundColor: matchData.b.b + "44",
+                                        borderWidth: 3,
                                         pointRadius: 0
                                     }
                                 ]
