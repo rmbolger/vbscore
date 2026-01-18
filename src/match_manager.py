@@ -101,7 +101,7 @@ class MatchManager:
 
             now = datetime.now()
             date_str = now.strftime("%Y%m%d")
-            timestamp = now.isoformat()
+            timestamp = now.replace(microsecond=0).isoformat()
             csv_file = self._data_folder / f"history_{date_str}.csv"
 
             # Check if file exists to determine if we need to write headers
