@@ -10,6 +10,7 @@ import json
 import base64
 import zlib
 import uuid
+import csv
 from typing import Dict#, Optional
 #from copy import deepcopy
 from datetime import datetime
@@ -29,7 +30,11 @@ class MatchManager:
         self._sessions: Dict[str, dict] = {}
         self._locks: Dict[str, asyncio.Lock] = {}
         self._global_lock = asyncio.Lock()
-        self._matches_file = Path(os.getenv("MATCHES_FILE", "/opt/vbscore-data/matches.json"))
+        data_folder = Path(os.getenv("VBSCORE_DATA_FOLDER", "/opt/vbscore-data"))
+        if not data_folder.exists():
+            data_folder = Path.cwd()
+        self._data_folder = data_folder
+        self._matches_file = data_folder / "matches.json"
 
 
     async def save_matches(self):
@@ -70,6 +75,9 @@ class MatchManager:
             ]
             async with self._global_lock:
                 for match_id in to_delete:
+                    # Log expire operation only if match wasn't already done
+                    if not self._matches[match_id].get("done", False):
+                        self._write_match_history("expire", match_id)
                     del self._matches[match_id]
                     del self._match_static[match_id]
                     del self._sessions[match_id]
@@ -81,6 +89,38 @@ class MatchManager:
         if match_id not in self._locks:
             self._locks[match_id] = asyncio.Lock()
         return self._locks[match_id]
+
+
+    def _write_match_history(self, operation: str, match_id: str):
+        """Write a match history entry to the daily CSV file."""
+        try:
+            match_static = self.get_match_static(match_id)
+            if not match_static:
+                logging.warning("Cannot write history for match %s: static data not found", match_id)
+                return
+
+            now = datetime.now()
+            date_str = now.strftime("%Y%m%d")
+            timestamp = now.isoformat()
+            csv_file = self._data_folder / f"history_{date_str}.csv"
+
+            # Check if file exists to determine if we need to write headers
+            file_exists = csv_file.exists()
+
+            with csv_file.open("a", encoding="utf-8", newline="") as f:
+                writer = csv.writer(f)
+                if not file_exists:
+                    writer.writerow(["operation", "match_id", "timestamp", "team_a_name", "team_b_name", "desc"])
+                writer.writerow([
+                    operation,
+                    match_id,
+                    timestamp,
+                    match_static["a"]["name"],
+                    match_static["b"]["name"],
+                    match_static["desc"]
+                ])
+        except Exception as e:  # pylint: disable=broad-except
+            logging.warning("Error writing match history for %s: %s", match_id, e)
 
 
     def _relative_luminance(self, r, g, b):
@@ -160,7 +200,7 @@ class MatchManager:
         return encoded_state
 
 
-    async def create_match(self, form: FormData) -> str:
+    async def create_match(self, form: FormData) -> tuple[str, str]:
         """Create a new match based on form data"""
         a_color_bg = form.get("a_color", "#FF0000") # red default
         b_color_bg = form.get("b_color", "#0000FF") # blue default
@@ -199,6 +239,7 @@ class MatchManager:
             self._sessions[match_id] = []
             self._locks[match_id] = asyncio.Lock()
 
+        self._write_match_history("start", match_id)
         return match_id,admin_token
 
 
@@ -302,6 +343,9 @@ class MatchManager:
                     # new set and then clicked end match)
                     if not match["history"][-1]:
                         match["history"].pop()
+
+                    # Log end operation (covers both explicit end and auto-end after 5 sets)
+                    self._write_match_history("end", match_id)
 
                     # send everyone to the archive
                     logging.info("%s:%s Match ended", match_id, session_id)
