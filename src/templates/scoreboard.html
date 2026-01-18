@@ -108,7 +108,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
+            gap: 0;
         }
 
         /* Set actions modal dialog */
@@ -154,6 +154,14 @@
                 left: 50%;
                 transform: translateX(-50%);
             }
+            /* Horizontal border between scores in landscape */
+            .set-score .set-a {
+                padding-right: 4px;
+                border-right: 1px solid #666;
+            }
+            .set-score .set-b {
+                padding-left: 4px;
+            }
         }
 
         /* Portrait mode */
@@ -176,15 +184,18 @@
             /* In portrait, stack scores vertically but keep numbers horizontal */
             .set-score {
                 flex-direction: column;
-                gap: 2px;
+                gap: 0;
             }
-            .set-score .set-a,
+            .set-score .set-a {
+                font-variant-numeric: tabular-nums;
+                line-height: 1.1;
+                padding-bottom: 2px;
+                border-bottom: 1px solid #666;
+            }
             .set-score .set-b {
                 font-variant-numeric: tabular-nums;
                 line-height: 1.1;
-            }
-            .set-score .set-dash {
-                line-height: 1;
+                padding-top: 2px;
             }
             .score {
                 font-size: 25vh;
@@ -212,7 +223,6 @@
                 {% set b_points = set_history | select('equalto', 1) | list | length %}
                 <div class="set-score">
                     <span class="set-a">{{ a_points }}</span>
-                    <span class="set-dash">-</span>
                     <span class="set-b">{{ b_points }}</span>
                 </div>
             {% endfor %}
@@ -281,15 +291,11 @@
                     aSpan.className = "set-a";
                     aSpan.textContent = aPoints;
 
-                    const dashSpan = document.createElement("span");
-                    dashSpan.className = "set-dash";
-                    dashSpan.textContent = "-";
-
                     const bSpan = document.createElement("span");
                     bSpan.className = "set-b";
                     bSpan.textContent = bPoints;
 
-                    setElem.append(aSpan, dashSpan, bSpan);
+                    setElem.append(aSpan, bSpan);
                     setsContainer.appendChild(setElem);
                 });
             };
