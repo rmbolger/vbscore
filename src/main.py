@@ -74,6 +74,11 @@ async def serve_archive():
     """Serve the archive page."""
     return FileResponse("static/archive.html")
 
+@app.get("/matches")
+async def serve_matches():
+    """Serve the matches page."""
+    return FileResponse("static/matches.html")
+
 @app.get("/favicon.ico")
 async def serve_favicon():
     """Serve the site favicon."""
@@ -132,6 +137,12 @@ async def serve_scoreboard(request: Request, match_id: str):
             "request": request,
         }
     )
+
+
+@app.get("/api/matches")
+async def get_matches():
+    """Return data for all active matches."""
+    return mgr.get_all_matches_info()
 
 
 @app.websocket("/ws/{match_id}")

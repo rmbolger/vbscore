@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Matches</title>
+    <link rel="manifest" href="/static/manifest.webmanifest">
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="icon" href="/static/icons/icon.0475C8270024A3B27E6B4D400577C7F5.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.0CEFA6716E9F5BA9D301FCB5F974E5A4.png">
+    <link rel="stylesheet" href="/static/common.css">
+    <style>
+        /* Override container max-width for matches page */
+        .container {
+            max-width: 800px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin: 0 0 10px 0;
+            font-weight: 700;
+        }
+
+        h1 .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 1.1em;
+            margin: 0 0 30px 0;
+        }
+
+        .matches-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .match-item {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: 0;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.2s;
+            display: block;
+            overflow: hidden;
+        }
+
+        .match-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .match-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .match-table td {
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .match-table td:first-child {
+            text-align: left;
+            font-weight: 600;
+            background-color: #f9fafb;
+            white-space: nowrap;
+        }
+
+        .match-table tr:first-child td:first-child {
+            font-style: italic;
+            color: #6b7280;
+            font-weight: 400;
+        }
+
+        .match-table .team-name {
+            font-size: 1.1em;
+        }
+
+        .match-table .set-score {
+            font-size: 1.2em;
+            font-weight: 400;
+        }
+
+        .match-table .set-score.winner {
+            font-weight: 700;
+        }
+
+        .match-table .wins-cell {
+            background-color: #fef3c7;
+            font-weight: 700;
+            font-size: 1.3em;
+        }
+
+        .match-table .set-header {
+            background-color: #f3f4f6;
+            font-weight: 600;
+            font-size: 0.9em;
+            color: #6b7280;
+        }
+
+        .no-matches {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+            font-size: 1.2em;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+            font-size: 1.2em;
+        }
+
+        .error {
+            text-align: center;
+            padding: 40px 20px;
+            color: #dc2626;
+            font-size: 1.2em;
+        }
+
+        @media (max-width: 768px) {
+            .match-table td {
+                padding: 8px 4px;
+                font-size: 0.9em;
+            }
+
+            .match-table td:first-child {
+                font-size: 0.85em;
+            }
+
+            .match-table .set-score {
+                font-size: 1em;
+            }
+
+            .match-table .wins-cell {
+                font-size: 1.1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1><span class="gradient-text">Active Matches</span></h1>
+            <p class="subtitle">Currently running volleyball matches</p>
+            
+            <div id="matchesContainer" class="loading">
+                Loading matches...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadMatches() {
+            const container = document.getElementById('matchesContainer');
+            
+            try {
+                const response = await fetch('/api/matches');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch matches');
+                }
+                
+                const matches = await response.json();
+                
+                if (matches.length === 0) {
+                    container.className = 'no-matches';
+                    container.innerHTML = 'No active matches at the moment.';
+                    return;
+                }
+                
+                container.className = 'matches-list';
+                container.innerHTML = matches.map(match => {
+                    // Generate set headers
+                    let setHeaders = match.set_scores.map((_, idx) => 
+                        `<td class="set-header">${idx + 1}</td>`
+                    ).join('');
+                    
+                    // Generate Team A scores
+                    let teamAScores = match.set_scores.map(scores => {
+                        let classes = 'set-score';
+                        if (scores.complete && scores.a > scores.b) {
+                            classes += ' winner';
+                        }
+                        return `<td class="${classes}">${scores.a}</td>`;
+                    }).join('');
+                    
+                    // Generate Team B scores
+                    let teamBScores = match.set_scores.map(scores => {
+                        let classes = 'set-score';
+                        if (scores.complete && scores.b > scores.a) {
+                            classes += ' winner';
+                        }
+                        return `<td class="${classes}">${scores.b}</td>`;
+                    }).join('');
+                    
+                    return `
+                        <a href="/scoreboard/${match.match_id}" class="match-item">
+                            <table class="match-table">
+                                <tr>
+                                    <td>${escapeHtml(match.desc)}</td>
+                                    ${setHeaders}
+                                    <td class="set-header"></td>
+                                </tr>
+                                <tr>
+                                    <td class="team-name">${escapeHtml(match.team_a)}</td>
+                                    ${teamAScores}
+                                    <td class="wins-cell">${match.sets_a}</td>
+                                </tr>
+                                <tr>
+                                    <td class="team-name">${escapeHtml(match.team_b)}</td>
+                                    ${teamBScores}
+                                    <td class="wins-cell">${match.sets_b}</td>
+                                </tr>
+                            </table>
+                        </a>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Error loading matches:', error);
+                container.className = 'error';
+                container.innerHTML = 'Error loading matches. Please try again later.';
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Load matches on page load
+        loadMatches();
+        
+        // Refresh every 10 seconds
+        setInterval(loadMatches, 10000);
+    </script>
+</body>
+</html>

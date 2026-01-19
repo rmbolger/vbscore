@@ -428,3 +428,50 @@ class MatchManager:
         match = self.get_match(match_id)
         if match:
             await websocket.send_json(match)
+
+    def get_all_matches_info(self) -> list[dict]:
+        """Return a list of all active matches with their info."""
+        matches_info = []
+        for match_id, match in self._matches.items():
+            match_static = self._match_static.get(match_id)
+            if match and match_static:
+                # Calculate current score (sets won) and collect set scores
+                sets_a = 0
+                sets_b = 0
+                set_scores = []
+                is_done = match.get("done", False)
+                history = match["history"]
+
+                for idx, set_data in enumerate(history):
+                    if set_data:  # Only count non-empty sets
+                        score_a = set_data.count(0)
+                        score_b = set_data.count(1)
+
+                        # A set is complete if:
+                        # 1. It's not the last set, OR
+                        # 2. The match is done
+                        is_complete = (idx < len(history) - 1) or is_done
+
+                        set_scores.append({
+                            "a": score_a,
+                            "b": score_b,
+                            "complete": is_complete
+                        })
+
+                        # Only count wins for complete sets
+                        if is_complete:
+                            if score_a > score_b:
+                                sets_a += 1
+                            elif score_b > score_a:
+                                sets_b += 1
+
+                matches_info.append({
+                    "match_id": match_id,
+                    "desc": match_static["desc"],
+                    "team_a": match_static["a"]["name"],
+                    "team_b": match_static["b"]["name"],
+                    "sets_a": sets_a,
+                    "sets_b": sets_b,
+                    "set_scores": set_scores
+                })
+        return matches_info
