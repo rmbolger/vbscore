@@ -10,80 +10,171 @@
     <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.0CEFA6716E9F5BA9D301FCB5F974E5A4.png">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f8f8f8;
             text-align: center;
-            padding: 10px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            padding: 0;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px 30px;
+            margin-bottom: 20px;
+        }
+
+        .match-header {
+            margin-bottom: 30px;
+        }
+
+        .match-header p {
+            font-size: 1.2em;
+            color: #6b7280;
             margin: 0;
         }
-        .match-header {
-            font-size: 1.2em;
+
+        .match-header span:first-child {
+            font-size: 2em;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: block;
             margin-bottom: 10px;
         }
+
         .team-name {
             font-size: 1.5em;
-            text-shadow: 1px 1px 2px black;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            font-weight: 600;
         }
+
         .scores-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 1em;
             margin-bottom: 2em;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
+
         .scores-table th, .scores-table td {
-            border: 1px solid #000;
-            padding: 8px;
+            border: 1px solid #e5e7eb;
+            padding: 12px;
             text-align: center;
         }
+
         .scores-table th {
-            background-color: #eaeaea;
+            background-color: #f9fafb;
             font-weight: bold;
+            font-size: 1.1em;
         }
+
         .scores-table .wins-row {
-            background-color: #f9e79f;
+            background-color: #fef3c7;
+            font-weight: 600;
         }
+
         .scores-table td:first-child {
             width: 1%;
             white-space: nowrap;
+            background-color: #f9fafb;
+            font-weight: 500;
+            color: #6b7280;
         }
+
         .scores-table td:nth-child(2), .scores-table td:nth-child(3) {
             width: 49.5%;
             word-wrap: break-word;
+            font-size: 1.2em;
         }
+
         .winner {
             font-weight: bold;
+            color: #059669;
         }
+
         td.row-label {
             border-top: none;
             border-left: none;
             border-bottom: none;
         }
+
         .set-chart {
             width: 100%;
             max-width: 100%;
             margin-bottom: 2em;
         }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .card {
+                padding: 20px 12px;
+                border-radius: 12px;
+            }
+
+            .match-header span:first-child {
+                font-size: 1.8em;
+            }
+
+            .team-name {
+                font-size: 1.2em;
+            }
+
+            .scores-table td:nth-child(2), .scores-table td:nth-child(3) {
+                font-size: 1em;
+            }
+
+            .scores-table th, .scores-table td {
+                padding: 8px 4px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="match-header">
-        <p><span style="font-weight: bold; font-size: larger;">Match Results</span><br/>
-        <span id="matchMeta"></span></p>
+    <div class="container">
+        <div class="card">
+            <div class="match-header">
+                <p><span>Match Results</span>
+                <span id="matchMeta"></span></p>
+            </div>
+            <table class="scores-table">
+                <thead>
+                    <tr>
+                        <th style="background-color: inherit;border-left: none;border-top: none;border-bottom: none;"></th>
+                        <th id="teamAName" class="team-name"></th>
+                        <th id="teamBName" class="team-name"></th>
+                    </tr>
+                </thead>
+                <tbody id="matchData">
+                    <!-- Match data will be populated dynamically -->
+                </tbody>
+            </table>
+            <div id="scoreCharts"></div>
+        </div>
     </div>
-    <table class="scores-table">
-        <thead>
-            <tr>
-                <th style="background-color: inherit;border-left: none;border-top: none;border-bottom: none;"></th>
-                <th id="teamAName" class="team-name"></th>
-                <th id="teamBName" class="team-name"></th>
-            </tr>
-        </thead>
-        <tbody id="matchData">
-            <!-- Match data will be populated dynamically -->
-        </tbody>
-    </table>
-    <div id="scoreCharts"></div>
 
     <script>
         function formatEpochDate(timestamp) {
@@ -236,7 +327,7 @@
                         chartContainer.appendChild(canvas);
 
                         // Create the chart
-                        new Chart(canvas.getContext("2d"), {
+                        const chart = new Chart(canvas.getContext("2d"), {
                             type: "line",
                             data: {
                                 labels: labels,
@@ -309,8 +400,30 @@
                                 }
                             }
                         });
+
+                        // Hide tooltip on touchend (when user stops touching the chart)
+                        canvas.addEventListener('touchend', () => {
+                            chart.tooltip.setActiveElements([]);
+                            chart.update();
+                        });
+
+                        // Hide tooltip on touchcancel (when touch is interrupted)
+                        canvas.addEventListener('touchcancel', () => {
+                            chart.tooltip.setActiveElements([]);
+                            chart.update();
+                        });
                     });
                 }
+
+                // Hide all chart tooltips when touching outside charts
+                document.addEventListener('touchstart', (e) => {
+                    if (!e.target.closest('.set-chart')) {
+                        Chart.instances.forEach(chart => {
+                            chart.tooltip.setActiveElements([]);
+                            chart.update();
+                        });
+                    }
+                });
             } catch (err) {
                 console.error("Failed to decode state:", err);
             }
