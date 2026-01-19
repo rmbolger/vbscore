@@ -10,9 +10,7 @@ import json
 import base64
 import zlib
 import uuid
-import csv
-from typing import Dict#, Optional
-#from copy import deepcopy
+from typing import Dict
 from datetime import datetime
 from pathlib import Path
 from starlette.datastructures import FormData
@@ -92,7 +90,7 @@ class MatchManager:
 
 
     def _write_match_history(self, operation: str, match_id: str) -> None:
-        """Write a match history entry to the daily CSV file."""
+        """Write a match history entry to the daily JSON file."""
         try:
             match_static = self.get_match_static(match_id)
             if not match_static:
@@ -100,25 +98,63 @@ class MatchManager:
                 return
 
             now = datetime.now()
-            date_str = now.strftime("%Y%m%d")
             timestamp = now.replace(microsecond=0).isoformat()
-            csv_file = self._data_folder / f"history_{date_str}.csv"
+            # Use the start_date from match_static to ensure all operations for a match
+            # go to the same file, even if the match spans multiple days
+            date_str = match_static.get("start_date", now.strftime("%Y%m%d"))
+            json_file = self._data_folder / f"history_{date_str}.json"
 
-            # Check if file exists to determine if we need to write headers
-            file_exists = csv_file.exists()
+            # Load existing history or create new list
+            history_data = []
+            if json_file.exists():
+                try:
+                    with json_file.open("r", encoding="utf-8") as f:
+                        history_data = json.load(f)
+                except Exception as e:  # pylint: disable=broad-except
+                    logging.warning("Error reading history file: %s", e)
 
-            with csv_file.open("a", encoding="utf-8", newline="") as f:
-                writer = csv.writer(f)
-                if not file_exists:
-                    writer.writerow(["operation", "match_id", "timestamp", "team_a_name", "team_b_name", "desc"])
-                writer.writerow([
-                    operation,
-                    match_id,
-                    timestamp,
-                    match_static["a"]["name"],
-                    match_static["b"]["name"],
-                    match_static["desc"]
-                ])
+            # Find existing entry for this match_id
+            existing_entry = None
+            for entry in history_data:
+                if entry.get("match_id") == match_id:
+                    existing_entry = entry
+                    break
+
+            if operation == "start":
+                # Create new entry with start timestamp
+                new_entry = {
+                    "match_id": match_id,
+                    "start": timestamp,
+                    "end": None,
+                    "expired": False,
+                    "team_a": match_static["a"]["name"],
+                    "team_b": match_static["b"]["name"],
+                    "desc": match_static["desc"]
+                }
+                history_data.append(new_entry)
+            elif operation in ("end", "expire"):
+                # Update existing entry with end timestamp and expired flag
+                if existing_entry:
+                    existing_entry["end"] = timestamp
+                    existing_entry["expired"] = (operation == "expire")
+                else:
+                    # Entry doesn't exist (shouldn't happen, but handle it)
+                    logging.warning("Match %s not found in history for %s operation", match_id, operation)
+                    new_entry = {
+                        "match_id": match_id,
+                        "start": None,
+                        "end": timestamp,
+                        "expired": (operation == "expire"),
+                        "team_a": match_static["a"]["name"],
+                        "team_b": match_static["b"]["name"],
+                        "desc": match_static["desc"]
+                    }
+                    history_data.append(new_entry)
+
+            # Write updated history back to file
+            with json_file.open("w", encoding="utf-8") as f:
+                json.dump(history_data, f, ensure_ascii=False, indent=2)
+
         except Exception as e:  # pylint: disable=broad-except
             logging.warning("Error writing match history for %s: %s", match_id, e)
 
@@ -229,6 +265,7 @@ class MatchManager:
             },
             "desc": html.escape(str(form.get("mLoc", ""))[:35]),
             "admin_token": admin_token,
+            "start_date": datetime.now().strftime("%Y%m%d"),
         }
         async with self._global_lock:
             # generate an unused match ID
