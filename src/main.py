@@ -5,6 +5,7 @@ import asyncio
 import logging
 import sys
 from contextlib import asynccontextmanager
+from typing import Optional
 from fastapi import (
     FastAPI, WebSocket, WebSocketDisconnect,
     Request
@@ -91,7 +92,18 @@ async def create_match(request: Request):
     admin_link = f"{base_url}/scoreboard/{match_id}?token={admin_token}"
     viewer_link = f"{base_url}/scoreboard/{match_id}"
 
-    client_ip = request.client.host
+    # Safely determine client IP (request.client can be None depending on ASGI server/proxy)
+    client = request.client
+    if client is not None:
+        client_ip = client.host
+    else:
+        # Prefer X-Forwarded-For when behind proxies, otherwise fall back to "unknown"
+        xff = request.headers.get("x-forwarded-for")
+        if xff:
+            client_ip = xff.split(",")[0].strip()
+        else:
+            client_ip = "unknown"
+
     logging.info("%s Created match %s", client_ip, match_id)
 
     return {"admin_link": admin_link, "viewer_link": viewer_link}
@@ -102,7 +114,7 @@ async def serve_scoreboard(request: Request, match_id: str):
     """Serve the scoreboard page."""
     match = mgr.get_match(match_id)
     match_static = mgr.get_match_static(match_id)
-    if not match:
+    if not match or not match_static:
         logging.warning("Match %s does not exist. Redirecting.", match_id)
         return RedirectResponse("/")
 
@@ -123,7 +135,7 @@ async def serve_scoreboard(request: Request, match_id: str):
 
 
 @app.websocket("/ws/{match_id}")
-async def websocket_endpoint(match_id: str, websocket: WebSocket, token: str = None):
+async def websocket_endpoint(match_id: str, websocket: WebSocket, token: Optional[str] = None):
     """Handles WebSocket connections for live score updates."""
 
     await websocket.accept()
@@ -132,7 +144,10 @@ async def websocket_endpoint(match_id: str, websocket: WebSocket, token: str = N
     if not session_id:
         return
 
-    is_admin = token == mgr.get_match_static(match_id)["admin_token"]
+    # Safely resolve admin token — get_match_static may return None
+    match_static = mgr.get_match_static(match_id)
+    admin_token = match_static.get("admin_token") if match_static else None
+    is_admin = token == admin_token
 
     # Send initial match state
     await mgr.send_match_state(websocket, match_id)
