@@ -11,7 +11,7 @@ from fastapi import (
     Request
 )
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from match_manager import MatchManager
 from rate_limiter import rate_limit, rate_limiter_cleanup_loop
@@ -83,6 +83,12 @@ async def serve_matches():
 async def serve_favicon():
     """Serve the site favicon."""
     return FileResponse("static/icons/favicon.ico")
+
+@app.get("/robots.txt")
+async def serve_robots():
+    """Serve robots.txt to disallow everything except the main page."""
+    content = "User-agent: *\nAllow: /$\nDisallow: /"
+    return PlainTextResponse(content, media_type="text/plain")
 
 
 @app.post("/create_match")
